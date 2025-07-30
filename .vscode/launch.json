@@ -1,0 +1,253 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: listfiles.py",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "debugtools.listfiles",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "Python: fixcityjson.py",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "argo.fixcityjson",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "Python: Generate workflow roofer.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/argo/roofer.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Generate workflow geluid.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/argo/geluid.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Generate workflow lazdb.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/argo/lazdb.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Generate workflow lazsplit.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/argo/lazsplit.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Generate workflow createbagdb.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/argo/createbagdb.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Generate workflow tyler.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/argo/tyler.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Generate workflow fixcityjson.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/argo/fixcityjson.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Generate workflow validatecityjson.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/argo/validatecityjson.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Debug createbagdb",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python", 
+            "args": [
+                "createbagdb",
+                "--temporary_directory", "${workspaceFolder}/tempdir",
+                "--year", "2022",
+                "--database", "bag_output.gpkg"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Debug geluid",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python", 
+            "args": [
+                "geluid",
+                "--source", "file://tempdir/input",
+                "--destination", "file://tempdir/geluidtest.gpkg",
+                "--temporary_directory", "${workspaceFolder}/tempdir",
+            ],
+            "console": "integratedTerminal"
+        },
+                {
+            "name": "Python: Debug hoogte",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python", 
+            "args": [
+                "hoogte",
+                "--source", "file://tempdir",
+                "--destination", "file://hoogtetest.gpkg",
+                "--temporary_directory", "${workspaceFolder}/tempdir",
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Debug createlazdb",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "args": [
+                "createlazdb",
+                "--sas_uri", "azure://<sas_token>",
+                "--database", "index.gpkg",
+                "--pattern", "(?i)^.*(las|laz)$",
+                "--epsg", "28992"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Debug runsingleroofertile",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "justMyCode": false,
+            "args": [
+                "runsingleroofertile",
+                "--temporary_directory", "tempdir",
+                "--footprints", "azure://<sas_token>",
+                "--pointclouds", 
+                "azure://<sas_token>",
+                "azure://<sas_token>", 
+                "--pointclouds_labels",
+                "AHN4",
+                "AHN3",
+                "--pointclouds_low_lod",
+                "azure://<sas_token>",
+                "--pointclouds_low_lod_labels",
+                "2022",
+                "--destination", "file://local.city.json",
+
+                "--extent", "90000.0","434000.0", "92000.0", "436000.0",
+                "--year", "2022",
+            ],
+            "env": {
+                "PATH": "${env:PATH}:${workspaceFolder}/binaries"
+            },
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Debug runallroofertiles",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "args": [
+                "runallroofertiles",
+                "--filename", "buildings_{x}_{y}",
+                "--year", "2022",
+                "--footprints", "file://footprints.gpkg",
+                "--gridsize", "2000",
+                "--temporary_directory", "tempdir",
+                "--pointclouds", "file://ahn/AHN4", "file://ahn/AHN3",
+                "--pointclouds_labels", "AHN4", "AHN3",
+                "--pointclouds_low_lod", "file://2022",
+                "--pointclouds_low_lod_labels", "2022",
+                "--destination", "azure://<sas_token>",
+                "--max_workers", "1"
+            ],
+            "env": {
+                "PATH": "${env:PATH}:${workspaceFolder}/binaries"
+            },
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Debug splitlaz",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "args": [
+                "splitlaz",
+                "--input_connection", "azure://<sas_token>",
+                "--output_connection", "azure://<sas_token>",
+                "--temporary_directory", "tempdir",
+                "--grid_size", "250"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Debug tyler",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "env": {
+                "RUST_BACKTRACE": "1",
+                "RUST_LOG": "debug",
+                "GF_PLUGIN_FOLDER": "${workspaceFolder}/docker/tyler/geofplugins",
+                "TYLER_RESOURCES_DIR": "${workspaceFolder}/docker/tyler",
+            },
+            "args": [
+                "tyler",
+                "--source", "file://tempdir/input",
+                "--destination", "file://tempdir/output",
+                "--temporary_directory", "tempdir/intermediate",
+                "--metadata_city_json", "docker/metadata.city.json",
+                "--mode", "buildings"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Debug createlazindex",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "env": {
+                "RUST_BACKTRACE": "1"
+            },
+            "args": [
+                "createlazindex",
+                "--destination", "<sas>",
+                "--temporary_directory", "tempdir",
+            ],
+            "console": "integratedTerminal"
+        },
+    ]
+}

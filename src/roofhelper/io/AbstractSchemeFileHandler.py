@@ -1,0 +1,62 @@
+from abc import ABC, abstractmethod
+import multiprocessing
+from pathlib import Path
+from typing import BinaryIO, Generator, Optional
+
+from roofhelper.io.FileHandle import FileHandle
+
+class AbstractSchemeHandler(ABC):
+    @staticmethod
+    @abstractmethod
+    def download_file(uri: str, temporary_directory: Optional[Path], file: Optional[str] = None) -> FileHandle:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def upload_file_directory(file: Path, uri: str, filename: Optional[str]) -> None:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def upload_file_direct(file: Path, uri: str) -> None:
+        pass 
+
+    @staticmethod
+    @abstractmethod
+    def list_files(uri: str, regex: str = '') -> Generator[tuple[str, str]]:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def navigate(uri: str, location: str) -> str:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def exists(uri: str) -> bool:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_bytes(uri: str) -> bytes:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_bytes_range(uri: str, start: int, stop: int) -> bytes:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def upload_folder(folder: Path, uri: str, recursive: bool = True, consumer_count: int = multiprocessing.cpu_count(), queue_size: int = 128) -> None:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def upload_stream_direct(bytes: BinaryIO, uri: str) -> None:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def upload_stream_directory(bytes: BinaryIO, uri: str, filename: str) -> None:
+        pass

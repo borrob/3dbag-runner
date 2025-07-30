@@ -1,0 +1,513 @@
+import argparse
+import glob
+import logging
+import multiprocessing
+import os
+import shutil
+import subprocess
+import threading
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date
+from functools import partial
+from io import BytesIO
+from pathlib import Path
+from typing import Any, Optional
+
+import fiona
+import geopandas
+import laspy
+from shapely import box
+from tqdm import tqdm
+
+from roofhelper import defautlogging, processing, zip, tyler
+from roofhelper.cityjson.geluid import (GELUID_SCHEMA, HOOGTE_SCHEMA,
+                                        building_to_gpkg_dict,
+                                        building_to_hoogte_gpkg_dict,
+                                        read_height_from_cityjson)
+from roofhelper.io import SchemeFileHandler, download_if_not_exists
+from roofhelper.kadaster import bag
+from roofhelper.kadaster.geo import grid_create_on_intersecting_centroid
+from roofhelper.pointcloud import laz
+from roofhelper.roofer import PointcloudConfig, roofer_config_generate
+
+log = defautlogging.setup_logging(logging.INFO)
+
+def createlazdb_operation(args: argparse.Namespace) -> None:
+    createlazdb(args.sas_uri, args.database, args.pattern, args.epsg, args.processing_chunk_size)
+
+def createlazdb(uri: str, target: Path, pattern: str = "(?i)^.*(las|laz)$", epsg: int = 28992, processing_chunk_size: int = 100) -> None:
+    handler = SchemeFileHandler(Path(""))
+
+    def _worker(blob: tuple[str, str], uri: str, creation_date: Optional[date] = None) -> dict[str, Any]:
+        """ Used in createlazdb with multiprocessing to processes multiple laz files in parallel """
+        header_raw = handler.get_bytes_range(blob[1], 0, 4096)
+        with laspy.open(BytesIO(header_raw)) as laz_file:
+            laz_header = laz_file.header
+            extent_polygon = laz.extent_to_polygon(laz_header)
+            return {
+                'geometry': extent_polygon,
+                'path': blob[1],
+                'date': laz_header.creation_date if creation_date != None else creation_date
+            }
+    
+    file_iterator = handler.list_files(uri, regex=pattern)
+    counter: int = 0
+    for blob_chunk in processing.chunked(file_iterator, processing_chunk_size):
+        counter += len(blob_chunk)
+        log.info(f"Proccessing: {counter}")
+
+        with ThreadPoolExecutor(max_workers=processing_chunk_size) as executor:
+            results = list(executor.map(_worker, blob_chunk))
+            gpkg = geopandas.GeoDataFrame(results, geometry="geometry", crs=f"EPSG:{epsg}")
+            gpkg.to_file(target, layer="laz_index", driver="GPKG", mode="a")
+
+def createlazindex_operation(args: argparse.Namespace) -> None:
+    createlazindex(args.destination, args.temporary_directory)
+
+def createlazindex(destination: str, temporary_directory: str) -> None:
+    log.info("Creating index of laz files")
+    index_path = Path(os.path.join(temporary_directory, "index.gpkg"))
+    createlazdb(destination, index_path)
+
+    log.info("Done creating the index, start uploading the index.gpkg")
+    handler = SchemeFileHandler(Path(temporary_directory))
+    handler.upload_file_directory(index_path, destination)
+
+    log.info("Done")
+
+def createbagdb_operation(args: argparse.Namespace) -> None:
+    createbagdb(args.temporary_directory, args.database, args.year)
+
+def createbagdb(temp_dir: Path, destination: Path, year: int) -> None:
+    """ Retrieves the BAG Pand database (NL only) """
+
+    log.info(f"Creating output directory {temp_dir}")
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    # Download, unpack and load the zip 
+    log.info("Download footprints")
+    bag_extract_url = "https://service.pdok.nl/kadaster/adressen/atom/v1_0/downloads/lvbag-extract-nl.zip"
+    bag_extract_zip = Path(os.path.join(temp_dir, "lvbag-extract-nl.zip"))
+    download_if_not_exists(bag_extract_url, bag_extract_zip)
+
+    pnd_extract_name = zip.list_files(bag_extract_zip, "^.*PND.*\\.zip$")[0]
+    zip.unzip(bag_extract_zip, temp_dir, pnd_extract_name)
+
+    pnd_extract_zip = Path(os.path.join(temp_dir, pnd_extract_name))
+    pnd_extract_by_year = Path(os.path.join(temp_dir, destination))
+    bag.extract_by_year(pnd_extract_zip, pnd_extract_by_year, year)
+
+    log.info("Finished processing buildings")
+
+def runsingleroofertile_operation(args: argparse.Namespace) -> None:
+    runsingleroofertile(tuple(args.extent), args.footprints, args.pointclouds, args.pointclouds_labels, args.year, args.destination, args.temporary_directory, args.pointclouds_low_lod, args.pointclouds_low_lod_labels)
+
+def runsingleroofertile(extent: tuple[float, float, float, float],
+                        footprints: str, 
+                        pointclouds: list[str], 
+                        pointclouds_labels: list[str],
+                        year: int,
+                        destination: str,
+                        temporary_directory: Path,
+                        pointclouds_low_lod: list[str] = [],
+                        pointclouds_low_lod_labels: list[str] = [],
+                        error_on_missing_tiles: bool = False) -> None:
+    """ Generate a single roofer tile for a certain extent """
+    log.info(f"Running single roofer tile {destination}")
+    file_handler = SchemeFileHandler(temporary_directory)
+
+    footprint_file = file_handler.download_file(footprints)
+    building_footprints = geopandas.read_file(footprint_file, bbox=extent, layer=0)
+
+    # All building centroids that intersect with the rectangle will participate with the roofer config
+    # This will prevent buildings being present in multiple roofer configs
+    building_footprints_filtered = building_footprints[building_footprints.centroid.within(box(*extent))]
+    # Use the total bounds of the selected buildings to figure out which laz files participate
+    minx, miny, maxx, maxy = building_footprints_filtered.total_bounds 
+    filtered_extent_box = box(minx, miny, maxx, maxy)
+    
+    pointclouds_to_use : list[PointcloudConfig] = []
+    pointcloud_priority = 0 # Highest priority
+
+    # Process the normal pointclouds first, they always have higher priority
+    all_pointclouds = pointclouds.copy()
+    all_pointclouds.extend(pointclouds_low_lod)
+
+    for pointcloud in all_pointclouds:
+        pointcloud_footprint_file = file_handler.download_file(pointcloud, "index.gpkg")
+        pointcloud_footprint_selected = geopandas.read_file(pointcloud_footprint_file, bbox=filtered_extent_box, layer=0)
+
+        pointcloud_paths = pointcloud_footprint_selected['path'].tolist()
+        pointclouds_downloaded: list[str] = []
+
+        def _safe_download(path: str) -> Optional[str]:
+            try:
+                return str(file_handler.download_file(pointcloud, path))
+            except Exception as e:
+                if error_on_missing_tiles:
+                    raise e
+                else:
+                    log.warning(f"Skipped tile {path}: {e}")
+                    return None
+
+        with ThreadPoolExecutor() as executor:
+            results = list(executor.map(_safe_download, pointcloud_paths))
+            pointclouds_downloaded = [r for r in results if r is not None]
+
+        if len(pointclouds_downloaded) == 0: #Seems I wasn't able to download any pointclouds for this pointcloud source, skip it
+            break
+
+        if pointcloud not in pointclouds_low_lod:
+            index = pointclouds.index(pointcloud)
+            pointclouds_to_use.append(PointcloudConfig(name=pointclouds_labels[index],
+                                      quality=pointcloud_priority, source=pointclouds_downloaded))
+        else:
+            index = pointclouds_low_lod.index(pointcloud)
+            pointclouds_to_use.append(PointcloudConfig(name=pointclouds_low_lod_labels[index], date=year, 
+                                      quality=pointcloud_priority, force_lod11=True, 
+                                      select_only_for_date=True, source=pointclouds_downloaded))
+
+        pointcloud_priority += 1 # Decrease priority for the next pointcloud
+
+    if any(len(x.source) > 0 for x in pointclouds_to_use):
+        config: str = roofer_config_generate(str(footprint_file.absolute()),
+                                            pointclouds=pointclouds_to_use,
+                                            bbox=list(extent),
+                                            id_attribute="identificatie",
+                                            yoc_column="oorspronkelijkBouwjaar",
+                                            output_directory=str(temporary_directory))
+        
+        log.info(f"Generated the following configuration:\n{config}")
+        config_path = file_handler.create_text_file(config, ".toml")
+
+        try: 
+            log.info(f"Start running roofer for {destination}")
+            subprocess.run(["roofer", "-c", str(config_path), "--no-tiling", "--lod12", "--lod13", "--lod22", "--no-simplify"], check=True, text=True)
+            log.info(f"Done running roofer for {destination}")
+
+            candidates = glob.glob(os.path.join(temporary_directory, "*.jsonl"))
+            if len(candidates) > 0:
+                jsonl = Path(glob.glob(os.path.join(temporary_directory, "*.jsonl"))[0])
+                cityjson = Path(os.path.join(temporary_directory, "data.city.json"))
+                
+                subprocess.run(f"cat {jsonl} | cjseq collect > {cityjson}", shell=True, check=True)
+                
+                file_handler.upload_file_direct(cityjson, destination)
+                log.info(f"Uploading {destination}")
+                
+                os.unlink(jsonl)
+                os.unlink(cityjson)
+            else:
+                log.info(f"Tile {destination} didn't produce any output, validate what is going on")
+            
+        except subprocess.CalledProcessError as e:
+            log.error(f"Failed processing file {destination}")
+            log.error(f"Error: Command '{e.cmd}' returned non-zero exit status {e.returncode}.")
+            log.error(f"Stderr: {e.stderr}")
+
+        for file in file_handler.file_handles: # Delete all temporary files
+            file_handler.delete_if_not_local(file.path)
+    else:
+        log.info(f"This tile contains footprints, but no corresponding point clouds found, skipping {destination} tile")
+    
+    log.info(f"Done processing {destination}")
+
+def runallconfigtiles_operation(args: argparse.Namespace) -> None:
+    runallconfigtiles(args.footprints, 
+                      args.pointclouds, 
+                      args.pointclouds_labels,
+                      args.year, 
+                      args.filename, 
+                      args.temporary_directory, 
+                      args.destination, 
+                      args.pointclouds_low_lod, 
+                      args.pointclouds_low_lod_labels, 
+                      args.max_workers,
+                      args.error_on_missing_tiles)
+
+def runallconfigtiles(footprints: str, 
+                      pointclouds: list[str], 
+                      pointclouds_labels : list[str],
+                      year: int, 
+                      filename: str,
+                      temporary_directory: Path,
+                      destination: str,
+                      pointclouds_low_lod: list[str] = [],
+                      pointclouds_low_lod_labels: list[str] = [],
+                      max_workers: int = 0,
+                      error_on_missing_tiles: bool = False) -> None:
+    """ Generate all roofer tiles using a footprint database """
+    
+    log.info(f"Run all tiles")
+
+    if max_workers <= 0:
+        max_workers = multiprocessing.cpu_count()
+    
+    file_handler = SchemeFileHandler(temporary_directory)
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Create a list to store the futures
+        futures = []
+        footprint_path = file_handler.download_file(footprints)
+        for extent in grid_create_on_intersecting_centroid(footprint_path, 2000):
+            data = {"x": int(extent[0]), "y": int(extent[1])}
+            name_generated = filename.format(**data)
+            output = file_handler.navigate(destination, f"{name_generated}.city.jsonl")
+            if not file_handler.exists(output):
+                log.info(f"Submitted tile {name_generated}")
+                futures.append(executor.submit(partial(runsingleroofertile,
+                                               extent,
+                                               footprints=f"file:{footprint_path}", # Explicitly set this to a file source
+                                               pointclouds=pointclouds,
+                                               pointclouds_labels=pointclouds_labels,
+                                               year=year,
+                                               destination=output,
+                                               temporary_directory=Path(os.path.join(temporary_directory, name_generated)),
+                                               pointclouds_low_lod=pointclouds_low_lod,
+                                               pointclouds_low_lod_labels=pointclouds_low_lod_labels,
+                                               error_on_missing_tiles=error_on_missing_tiles)))
+
+        log.info("Done submitting all tiles, show progress")
+        # Use tqdm to add a progress bar
+        for future in tqdm(futures, total=len(futures), desc="Processing tiles"):
+            future.result()  # This will block until the future is done
+    
+def pointcloudsplit_operation(args: argparse.Namespace) -> None:
+    pointcloudsplit(args.input_connection, args.output_connection, args.grid_size, args.temporary_directory)
+
+def pointcloudsplit(input_connection: str, output_connection: str, grid_size: int, temporary_directory: Path) -> None:
+    """ Split laz files into smaller, manageable chunks """
+    log.info(f"Splitting laz files, source: {input_connection} destination: {output_connection}")
+    os.makedirs(temporary_directory, exist_ok=True)
+    handler = SchemeFileHandler(temporary_directory)
+
+    file_list = handler.list_files(input_connection, regex=r"(?i)^.*\.LAZ$")
+    
+    
+    def _upload_and_cleanup(file_path: Path, filename: str) -> None:
+        try:
+            handler.upload_file_directory(file_path, output_connection, filename)
+            os.remove(file_path)
+            log.info(f"Uploaded and removed: {file_path}")
+        except Exception as e:
+            log.error(f"Failed to process {file_path}: {e}")
+
+    for file_name, file_uri in file_list:
+        log.info(f"Processing {file_name}")
+        os.makedirs(temporary_directory, exist_ok=True)
+
+        log.info(f"Downloading point cloud {file_name}")
+        downloaded_tile = handler.download_file(file_uri)
+
+        log.info(f"Splitting point cloud {file_name}")
+        generated_tiles = laz.laz_tile_split(downloaded_tile, temporary_directory, grid_size)
+        
+        log.info(f"Generated {len(generated_tiles)} for {file_name}, start uploading them")
+        with ThreadPoolExecutor() as executor:
+            futures = [executor.submit(_upload_and_cleanup, Path(tile), file_name) for tile in generated_tiles]
+
+            for future in as_completed(futures):
+                future.result()
+
+        log.info(f"Finished uploading {len(generated_tiles)} files for {file_name}")
+        handler.delete_if_not_local(downloaded_tile)
+
+def hoogte_operation(args: argparse.Namespace) -> None:
+    height_database(args.source, args.destination, args.temporary_directory, False)
+
+def geluid_operation(args: argparse.Namespace) -> None:
+    height_database(args.source, args.destination, args.temporary_directory)
+
+def height_database(source: str, destination: str, temporary_directory: Path, isgeluid: bool = True) -> None:
+    logging.info("Start geluid workflow")
+    scheme_handler = SchemeFileHandler(temporary_directory)
+
+    os.makedirs(temporary_directory, exist_ok=True)
+
+    batch_size = 100000
+    queue: multiprocessing.Queue = multiprocessing.Queue(maxsize = batch_size * 2) # type: ignore
+    temporary_db = Path(os.path.join(temporary_directory, "db.gpkg"))
+
+    def _reader(uri: str) -> None:
+        file = scheme_handler.download_file(uri)
+        try:
+            for building in read_height_from_cityjson(file):
+                if isgeluid:
+                    queue.put(building_to_gpkg_dict(building))
+                else:
+                    queue.put(building_to_hoogte_gpkg_dict(building))
+        except Exception as e:
+            log.error(f"Failed processing {uri} {e}")
+            raise
+
+        scheme_handler.delete_if_not_local(file)
+        log.info(f"Processed {uri}")
+
+    def _producer() -> None:
+        log.info(f"Start retrieving city.json files")
+        futures = []
+        with ThreadPoolExecutor() as executor:
+            for _, uri in scheme_handler.list_files(source, regex="(?i)^.*city\\.json$"):
+                futures.append(executor.submit(_reader, uri))
+
+            for future in as_completed(futures):
+                future.result() 
+
+        queue.put(None)
+        log.info(f"Stopping producer")
+
+    def _consumer() -> None:
+        log.info(f"Starting writing to height database")
+        batch = []
+        schema = GELUID_SCHEMA if isgeluid else HOOGTE_SCHEMA
+        with fiona.open(temporary_db, 'w', driver='GPKG', schema=schema, crs='EPSG:28992', layer='buildings') as gpkg:
+            while True:
+                item = queue.get()
+                if item == None:
+                    break
+
+                batch.append(item)
+                if (len(batch) % batch_size) == 0:
+                    gpkg.writerecords(batch)
+                    log.info(f"Finished processing {batch_size} records, waiting for next batch")
+                    batch.clear()
+
+            if len(batch) > 0:
+                gpkg.writerecords(batch)
+                log.info(f"Finished processing {len(batch)} records, done reading bag")
+        log.info(f"Stopping consumer")
+
+    # Start threads
+    producer_thread = threading.Thread(target=_producer)
+    consumer_thread = threading.Thread(target=_consumer)
+
+    producer_thread.start()
+    consumer_thread.start()
+
+    producer_thread.join()
+    consumer_thread.join()
+    log.info("Done creating sound database, start uploading")
+    scheme_handler.upload_file_direct(temporary_db, destination)
+    log.info("Uploaded database, stopping workflow")
+
+def tyler_operation(args: argparse.Namespace) -> None:
+    tyler_runner(args.source, args.destination, args.temporary_directory, args.mode, args.metadata_city_json)
+    
+def tyler_runner(source: str, destination: str, temporary_directory: Path, mode: str, metadata_city_json: Path) -> None:
+    log.info("Staring tyler workflow")
+    
+    log.info("Download and fix cityjson files to be tyler compatible")
+
+
+    tyler_input_directory = Path(os.path.join(str(temporary_directory), "input"))
+    found_schema = tyler.prepare_files(source, tyler_input_directory)
+    log.info(f"Using schema {found_schema}")
+
+    tyler_output_directory = Path(os.path.join(str(temporary_directory), "output"))
+    os.makedirs(tyler_output_directory, exist_ok=True)
+
+
+    match mode: #run should be a config file
+        case "buildings":
+            log.info("Running tyler for buildings")
+            building_schema = "beginGeldigheid:string,documentDatum:string,documentNummer:string,eindGeldigheid:string,eindRegistratie:string,force_low_lod:bool,geconstateerd:string,identificatie:string,oorspronkelijkBouwjaar:int,rf_extrusion_mode:string,rf_force_lod11:bool,rf_h_ground:float,rf_h_pc_98p:float,rf_h_roof_ridge:float,rf_is_glass_roof:bool,rf_is_mutated_AHN3_2023:bool,rf_is_mutated_AHN4_AHN3:bool,rf_nodata_frac_2023:float,rf_nodata_frac_AHN3:float,rf_nodata_frac_AHN4:float,rf_nodata_r_2023:float,rf_nodata_r_AHN3:float,rf_nodata_r_AHN4:float,rf_pc_select:string,rf_pc_source:string,rf_pc_year:int,rf_pointcloud_unusable:bool,rf_pt_density_2023:float,rf_pt_density_AHN3:float,rf_pt_density_AHN4:float,rf_reconstruction_time:int,rf_ridgelines:int,rf_rmse_lod12:float,rf_rmse_lod13:float,rf_rmse_lod22:float,rf_roof_elevation_50p:float,rf_roof_elevation_70p:float,rf_roof_elevation_max:float,rf_roof_elevation_min:float,rf_roof_n_planes:int,rf_roof_type:string,rf_success:bool,rf_val3dity_lod12:string,rf_val3dity_lod13:string,rf_val3dity_lod22:string,rf_volume_lod12:float,rf_volume_lod13:float,rf_volume_lod22:float,status:string,tijdstipEindRegistratieLV:string,tijdstipInactief:string,tijdstipInactiefLV:string,tijdstipNietBagLV:string,tijdstipRegistratie:string,tijdstipRegistratieLV:string,voorkomenIdentificatie:int"
+            tyler.cityjsonbuilding_to_glb(tyler_input_directory, metadata_city_json, tyler_output_directory, building_schema)
+        case "terrain":
+            log.info("Running tyler for terrain")
+            tyler.cityjsonterrain_to_glb(tyler_input_directory, metadata_city_json, tyler_output_directory, found_schema)
+        case _:
+            raise ValueError(f"Invalid mode '{mode}': must be 'buildings' or 'terrain'")
+
+    scheme_handler = SchemeFileHandler()
+    scheme_handler.upload_folder(tyler_output_directory, destination)
+    shutil.rmtree(temporary_directory)
+    log.info("Done")
+
+
+def main() -> None:   
+    parser = argparse.ArgumentParser(description="Tool for generating toml configuration files for roofer")
+
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    splitlaz = subparsers.add_parser("splitlaz", help="Split laz files")
+    splitlaz.add_argument("--input_connection", type=str, required=True, help="SAS URI including the directory containing the laz files")
+    splitlaz.add_argument("--output_connection", type=str, required=True, help="SAS URI destination of generated tiles", default=0)
+    splitlaz.add_argument("--temporary_directory", type=Path, required=True, help="Temporary directory for the devided laz tiles")
+    splitlaz.add_argument("--grid_size", type=int, required=True, help="Size of the grid for said laz tiles")
+    splitlaz.set_defaults(func=pointcloudsplit_operation)
+
+    createbagdb = subparsers.add_parser("createbagdb", help="Creates a geopackage containing building footprints")
+    createbagdb.add_argument("--temporary_directory", type=Path, help="Temporary directory for processing files in")
+    createbagdb.add_argument("--year", type=int, required=False, help="Reconstruction year", default=0)
+    createbagdb.add_argument("--database", type=Path, required=True, help="Geopackage to write the footprints to, the geopackage will always be newly created")
+    createbagdb.add_argument("--low_lod_source", type=Path, required=False, help="Geopackage containing polygons, if the polygon intersects with the building, mark it for low LOD")
+    createbagdb.set_defaults(func=createbagdb_operation)
+
+    createlazdb = subparsers.add_parser("createlazdb", help="Create a geopackage containing the laz footprints")
+    createlazdb.add_argument("--sas_uri",   type=str,   required=True,  help="An Azure blob sas token, including the directory path where to read the *.laz files from.")
+    createlazdb.add_argument("--database",  type=Path,  required=True,  help="Geopackage to write the footprints to, the geopackage will always be newly created")
+    createlazdb.add_argument("--pattern",   type=str,   required=False, help="Regex pattern each laz file must match with", default="(?i)^.*(las|laz)$")
+    createlazdb.add_argument("--epsg",      type=int,   required=False, help="EPSG Code, eg 28992 for RD", default=28992)
+    createlazdb.add_argument("--processing-chunk-size", type=int, required=False, help="Batch size of laz files to concurrently process, default 100, concurrency will equal the amount of cpu cores you have in the system", default=100)
+    createlazdb.set_defaults(func=createlazdb_operation)
+
+    runsingleroofertile = subparsers.add_parser("runsingleroofertile", help="Create roofer configuration files using gpkgs as input")
+    runsingleroofertile.add_argument("--destination",    type=str,   required=True) 
+    runsingleroofertile.add_argument("--footprints",     type=str,  required=True,  help="SQL Lite database containing all file references", default="footprints.gpkg")
+    runsingleroofertile.add_argument("--year",           type=int,   required=True,  help="Year being processed")
+    runsingleroofertile.add_argument("--temporary_directory", type=Path, required=True, help="Directory for temporary files")
+    runsingleroofertile.add_argument("--pointclouds",    type=str,  required=True,  nargs="*", help="List of laz files to use, point to a directory that contains a index.gpkg file. Format is file://./laz or azure://https:... sas token")
+    runsingleroofertile.add_argument("--pointclouds_labels", type=str, required=True,  nargs="*", help="Label for each pointcloud, must have the same amount of arguments as pointclouds, example: 2022")
+    runsingleroofertile.add_argument("--extent",         type=float, required=False, nargs="*",  help="Extent, formatted in xmin,ymin,xmax,ymax")
+    runsingleroofertile.add_argument("--pointclouds_low_lod", type=str, required=False, default=[],  nargs="*", help="List of laz files to use, point to a directory that contains a index.gpkg file. Format is file://./laz or azure://https:... sas token")
+    runsingleroofertile.add_argument("--pointclouds_low_lod_labels", type=str, required=False, default=[], nargs="*", help="Label for each pointcloud, must have the same amount of arguments as pointclouds_low_low, example: 2022")
+    runsingleroofertile.set_defaults(func=runsingleroofertile_operation)
+
+    runallroofertiles = subparsers.add_parser("runallroofertiles", help="Create roofer configuration files using gpkgs as input")
+    runallroofertiles.add_argument("--footprints",   type=str,  required=True,  help="SQL Lite database containing all file references", default="footprints.gpkg")
+    runallroofertiles.add_argument("--gridsize",    type=int,   required=True,  help="Area of each tile config file, both x and y")
+    runallroofertiles.add_argument("--year",        type=int,   required=True,  help="Year being processed")
+    runallroofertiles.add_argument("--temporary_directory", type=Path,  required=True, help="Directory for temporary files")
+    runallroofertiles.add_argument("--pointclouds", type=str,  required=True,  nargs="*", help="List of laz files to use, point to a directory that contains a index.gpkg file. Format is file://./laz or azure://https:... sas token")
+    runallroofertiles.add_argument("--pointclouds_labels", type=str,  required=True,  nargs="*", help="Label for each pointcloud, must have the same amount of arguments as pointclouds, example: 2022")
+    runallroofertiles.add_argument("--destination",   type=str,   required=True,  help="Destination to write the files to, format is file://./laz or azure://https:... sas token")
+    runallroofertiles.add_argument("--pointclouds_low_lod", type=str,  required=False, default=[], nargs="*", help="List of laz files to use, point to a directory that contains a index.gpkg file. Format is file://./laz or azure://https:... sas token")
+    runallroofertiles.add_argument("--pointclouds_low_lod_labels", type=str,  required=False, default=[], nargs="*", help="Label for each pointcloud, must have the same amount of arguments as pointclouds_low_low, example: 2022")
+    runallroofertiles.add_argument("--max_workers", type=int,   required=False, default=0, help="Keep or delete point clouds after generating city.json files")
+    runallroofertiles.add_argument("--filename",    type=str,   required=False, default="tile_{x}_{y}",  help="Name of the tiles to generate")
+    runallroofertiles.set_defaults(func=runallconfigtiles_operation)
+
+    runtyler = subparsers.add_parser("tyler")
+    runtyler.add_argument("--source",   type=str,  required=True,  help="azure://source")
+    runtyler.add_argument("--destination",   type=str,  required=True,  help="azure://destination")
+    runtyler.add_argument("--temporary_directory", type=Path,  required=True, help="Directory for temporary files")
+    runtyler.add_argument("--mode", type=str, required=True, choices=["buildings", "terrain"], help="Terrain")
+    runtyler.add_argument("--metadata_city_json", type=Path, required=True, help="Path to metadata.city.json")
+    runtyler.set_defaults(func=tyler_operation)
+
+    createlazindex = subparsers.add_parser("createlazindex")
+    createlazindex.add_argument("--destination", type=str, required=True, help="azure://destination")
+    createlazindex.add_argument("--temporary_directory", type=str, required=True, help="Directory for temporary files")
+    createlazindex.set_defaults(func=createlazindex_operation)
+
+    geluid = subparsers.add_parser("geluid")
+    geluid.add_argument("--source",   type=str,  required=True,  help="azure://source")
+    geluid.add_argument("--destination",   type=str,  required=True,  help="azure://destination")
+    geluid.add_argument("--temporary_directory", type=str, required=True, help="Directory for temporary files")
+    geluid.set_defaults(func=geluid_operation)
+
+    hoogte = subparsers.add_parser("hoogte")
+    hoogte.add_argument("--source",   type=str,  required=True,  help="azure://source")
+    hoogte.add_argument("--destination",   type=str,  required=True,  help="azure://destination")
+    hoogte.add_argument("--temporary_directory", type=str, required=True, help="Directory for temporary files")
+    hoogte.set_defaults(func=hoogte_operation)
+
+    args = parser.parse_args()
+    if args.command:
+        args.func(args)
+    else:
+        parser.print_help()
+
+if __name__ == "__main__":
+    main()

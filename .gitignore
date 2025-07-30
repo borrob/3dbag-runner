@@ -1,0 +1,27 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.mypy_cache
+
+# Virtual environments
+.venv
+
+# Ignore test output
+output/
+tempdir/
+ahn/
+2022/
+
+
+
+*.gpkg
+
+nieuwland.toml
+roofer.log.json
+
+# Workflows output
+generated/*.yaml
