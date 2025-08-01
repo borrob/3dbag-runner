@@ -61,7 +61,9 @@ Create a footprint database from BAG data (Netherlands only):
 ## Running Roofer for All Tiles
 Once we've indexed all the point clouds and created the footprint database, we can run the Roofer tool to generate 3D buildings for all tiles. The following command will process all tiles in the specified grid size and save the results to Azure Blob Storage. You can also save and load the results to/from a local file system by using the `file://` scheme. 
 
-The --pointclouds and --pointclouds_labels options allow you to specify multiple point clouds and their corresponding labels. The pointcloud priority is determined by the order in which they are specified. The first point cloud will be used as the primary source, and subsequent point clouds will be used as fallbacks if the primary source does not contain data for a specific tile. All pointcloud_low_lod files will be used as a fallback for the primary pointclouds, but only if the primary pointclouds do not contain data for a specific tile. 
+The --pointclouds and --pointclouds_labels options allow you to specify multiple point clouds and their corresponding labels. The pointcloud priority is determined by the order in which they are specified. The first point cloud will be used as the primary source, and subsequent point clouds will be used as fallbacks if the primary source does not contain data for a specific footprint. All pointcloud_low_lod files are used after the primary point cloud sources, the low_lod instructs roofer to treat the data as unsuitable for the region grow algorithm used for reconstructing the point cloud data.
+
+Why use multiple sources? For instance if a building was build at later date then is available in the primary point cloud source, secondary sources can provide a fallback pointcloud that does contain the proper data for that date.
 
 ```bash
 ./.venv/bin/python ./src/main.py runallroofertiles \
