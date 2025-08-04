@@ -43,7 +43,7 @@ class AbstractSchemeHandler(ABC):
 
     @staticmethod
     @abstractmethod
-    def get_bytes_range(uri: str, start: int, stop: int) -> bytes:
+    def get_bytes_range(uri: str, offset: int, length: int) -> bytes:
         pass
 
     @staticmethod
@@ -53,10 +53,10 @@ class AbstractSchemeHandler(ABC):
 
     @staticmethod
     @abstractmethod
-    def upload_stream_direct(bytes: BinaryIO, uri: str) -> None:
+    def upload_stream_direct(stream: BinaryIO, uri: str) -> None:
         pass
 
     @staticmethod
     @abstractmethod
-    def upload_stream_directory(bytes: BinaryIO, uri: str, filename: str) -> None:
+    def upload_stream_directory(stream: BinaryIO, uri: str, filename: str) -> None:
         pass

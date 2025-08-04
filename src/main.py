@@ -28,6 +28,7 @@ from roofhelper.cityjson.geluid import (GELUID_SCHEMA, HOOGTE_SCHEMA,
 from roofhelper.io import SchemeFileHandler, download_if_not_exists
 from roofhelper.kadaster import bag
 from roofhelper.kadaster.geo import grid_create_on_intersecting_centroid
+from roofhelper.pdok import PdokS3Uploader, PdokUpdateTrigger, UploadResult
 from roofhelper.pointcloud import laz
 from roofhelper.roofer import PointcloudConfig, roofer_config_generate
 
@@ -424,6 +425,58 @@ def tyler_runner(source: str, destination: str, temporary_directory: Path, mode:
     shutil.rmtree(temporary_directory)
     log.info("Done")
 
+def trigger_pdok_update_operation(args: argparse.Namespace) -> None:
+    trigger_pdok_update(args.source, 
+                        args.destination_s3_url, 
+                        args.destination_s3_user, 
+                        args.destination_s3_key,
+                        args.trigger_update_url,
+                        args.trigger_private_key_content)
+
+def trigger_pdok_update(source: str,
+                        destination_s3_url: str, 
+                        destination_s3_user: str, 
+                        destination_s3_key: str,
+                        trigger_update_url: str,
+                        trigger_private_key_content: str) -> None:
+                        
+    """Main function to trigger PDOK update process."""
+    log.info("Starting update of pdok geopackage")
+
+    try:
+        # Download the geopackage file from the source URI
+        log.info(f"Downloading geopackage from source: {source}")
+        file_handler = SchemeFileHandler()
+        local_geopackage_path = file_handler.download_file(source)
+        log.info(f"Downloaded geopackage to: {local_geopackage_path}")
+        
+        # Create S3 uploader and upload file
+        uploader = PdokS3Uploader(destination_s3_url, destination_s3_user, destination_s3_key)
+        upload_result: UploadResult = uploader.upload_file(str(local_geopackage_path))
+        
+        if not upload_result.success:
+            log.error(f"Upload failed: {upload_result.error_message}")
+            exit(-1)
+        
+        # Create trigger and send update notification
+        trigger = PdokUpdateTrigger(trigger_update_url, trigger_private_key_content)
+        success = trigger.trigger_update(upload_result)
+        
+        if not success:
+            log.error("Failed to trigger PDOK update")
+            exit(-1)
+            
+        log.info("Successfully completed PDOK update process")
+        
+    except Exception as e:
+        log.error(f"Error during PDOK update process: {str(e)}")
+        exit(-1)
+
+def create_pdok_index_operation(args: argparse.Namespace) -> None:
+    create_pdok_indeX()
+
+def create_pdok_index() -> None:
+    
 
 def main() -> None:   
     parser = argparse.ArgumentParser(description="Tool for generating toml configuration files for roofer")
@@ -502,6 +555,21 @@ def main() -> None:
     hoogte.add_argument("--destination",   type=str,  required=True,  help="azure://destination")
     hoogte.add_argument("--temporary_directory", type=str, required=True, help="Directory for temporary files")
     hoogte.set_defaults(func=hoogte_operation)
+
+    trigger_pdok_update = subparsers.add_parser("trigger_pdok_update", help="Trigger PDOK update")
+    trigger_pdok_update.add_argument("--source", type=str, required=True, help="Source URI of the geopackage to update, e.g. azure://source/path/to/geopackage.gpkg")
+    trigger_pdok_update.add_argument("--destination_s3_url", type=str, required=True, help="Destination S3 URL for the uploaded file")
+    trigger_pdok_update.add_argument("--destination_s3_user", type=str, required=True, help="S3 user for authentication")
+    trigger_pdok_update.add_argument("--destination_s3_key", type=str, required=True, help="S3 key for authentication")
+    trigger_pdok_update.add_argument("--trigger_update_url", type=str, required=True, help="URL to trigger the PDOK update")
+    trigger_pdok_update.add_argument("--trigger_private_key_content", type=str, required=True, help="Private key content for triggering the update")
+    trigger_pdok_update.set_defaults(func=trigger_pdok_update_operation)
+    
+    create_pdok_index = subparsers.add_parser("create_pdok_index", help="Create PDOK index")
+    create_pdok_index.add_argument("--source", type=str, required=True, help="Source URI of the geopackage to index, e.g. azure://source/path/to/geopackage.gpkg")
+    create_pdok_index.add_argument("--destination", type=str, required=True, help="Destination URI for the index, e.g. azure://destination/path/to/index.gpkg")
+    create_pdok_index.add_argument("--temporary_directory", type=Path, required=True, help="Directory for temporary files")
+    create_pdok_index.set_defaults(func=create_pdok_index_operation)
 
     args = parser.parse_args()
     if args.command:

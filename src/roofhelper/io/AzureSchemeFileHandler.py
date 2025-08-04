@@ -51,7 +51,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         # Read & convert text streams into bytes
         if isinstance(stream, TextIOBase):
             text = stream.read()
-            data = text.encode('utf-8')
+            data = text.encode('utf-8') # type: ignore
             return BytesIO(data)
         else:
             # Assume binary; rewind to start

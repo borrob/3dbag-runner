@@ -22,7 +22,7 @@ class FileSchemeFileHandler(AbstractSchemeHandler):
             return Path(parsed_uri.netloc)
 
     @staticmethod
-    def download_file(uri: str, _: Optional[Path], file: Optional[str] = None) -> FileHandle:
+    def download_file(uri: str, temporary_directory: Optional[Path], file: Optional[str] = None) -> FileHandle:
         return FileHandle(FileSchemeFileHandler._get_local_path(uri, file), False)
     
     @staticmethod
