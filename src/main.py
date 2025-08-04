@@ -1,5 +1,6 @@
 import argparse
 import glob
+import json
 import logging
 import multiprocessing
 import os
@@ -430,6 +431,7 @@ def trigger_pdok_update_operation(args: argparse.Namespace) -> None:
                         args.destination_s3_url, 
                         args.destination_s3_user, 
                         args.destination_s3_key,
+                        args.s3_prefix,
                         args.trigger_update_url,
                         args.trigger_private_key_content)
 
@@ -437,6 +439,7 @@ def trigger_pdok_update(source: str,
                         destination_s3_url: str, 
                         destination_s3_user: str, 
                         destination_s3_key: str,
+                        s3_prefix: str,
                         trigger_update_url: str,
                         trigger_private_key_content: str) -> None:
                         
@@ -452,7 +455,7 @@ def trigger_pdok_update(source: str,
         
         # Create S3 uploader and upload file
         uploader = PdokS3Uploader(destination_s3_url, destination_s3_user, destination_s3_key)
-        upload_result: UploadResult = uploader.upload_file(str(local_geopackage_path))
+        upload_result: UploadResult = uploader.upload_file(str(local_geopackage_path), s3_prefix)
         
         if not upload_result.success:
             log.error(f"Upload failed: {upload_result.error_message}")
@@ -473,10 +476,121 @@ def trigger_pdok_update(source: str,
         exit(-1)
 
 def create_pdok_index_operation(args: argparse.Namespace) -> None:
-    create_pdok_indeX()
+    create_pdok_index()
 
 def create_pdok_index() -> None:
-    
+    # TODO: Implement PDOK index creation functionality
+    pass
+
+def splitgpkg_operation(args: argparse.Namespace) -> None:
+    splitgpkg(args.source, args.destination, args.split_source, args.file_pattern, args.readme, args.temporary_directory)
+
+def splitgpkg(
+    source: str,
+    destination: str,                 
+    split_source: str,
+    file_pattern: str,
+    readme: list[str],
+    temporary_directory: Path
+) -> None:
+    """
+    Split `source` (a GeoPackage) into <tile>.gpkg files whose features fall
+    inside the bbox of each tile defined in `split_source` (JSON).
+
+    * Uses a thread pool to parallelise the I/O-heavy per-tile work.
+    * Each output GPKG goes into `temporary_directory` and keeps the same
+      layer schema/CRS as the first layer of the source file.
+    """
+    log.info("Start splitting gpkg %s", source)
+    file_handler = SchemeFileHandler(temporary_directory)
+
+    gpkg_source: Path = file_handler.download_file(source)
+    split_source_path: Path = file_handler.download_file(split_source)
+    # -----------------------------------------------------------------------
+    # load tile index {tile_code: [xmin, ymin, xmax, ymax]}
+    # -----------------------------------------------------------------------
+    with open(split_source_path, "r") as f:
+        tiles: dict[str, list[float]] = json.load(f)
+
+    layer_name: str = fiona.listlayers(gpkg_source)[0]
+
+    # -----------------------------------------------------------------------
+    # worker function (runs in pool threads)
+    # -----------------------------------------------------------------------
+    def _write_tile_gpkg(item: tuple[str, list[float]]) -> Optional[Path]:
+        """
+        Read, filter, and write a single tile.
+
+        Returns the tile code on success, or None if the tile was empty.
+        """
+        key, bbox = item
+        try:
+            name = file_pattern % key
+            log.debug("Generate gpkg %s", name)
+            minx, miny, maxx, maxy = bbox
+            bbox_geom = box(minx, miny, maxx, maxy)
+            # 1) read features intersecting the bbox
+            features = geopandas.read_file(gpkg_source, bbox=bbox_geom, layer=0)
+
+            # 2) keep only those whose centroid is *inside* the bbox polygon
+            
+            features_by_centroid = features[features.centroid.within(bbox_geom)]
+
+            if features_by_centroid.empty:
+                log.debug("Tile %s: empty after centroid filter", name)
+                return None
+
+            os.makedirs(temporary_directory / name, exist_ok=True)
+
+            # 3) write to <key>.gpkg in the temp dir
+            out_path = temporary_directory / name / f"{name}.gpkg"
+            features_by_centroid.to_file(
+                out_path,
+                driver="GPKG",
+                layer=layer_name,
+                index=False,
+            )
+            log.info("Wrote %s", out_path.name)
+            zipfile = temporary_directory / f"{name}.zip"
+            
+            with open(temporary_directory / name / "readme.md", "w") as f:
+                f.write("\n".join(readme) + "\n")
+
+            zip.zip_dir(temporary_directory / name, zipfile)
+
+            file_handler.upload_file_directory(zipfile, destination)
+
+            shutil.rmtree(temporary_directory / name)
+            os.unlink(zipfile)
+            return out_path
+
+        except Exception as exc:
+            # Never let one failure kill the whole pool
+            log.exception("Tile %s failed: %s", key, exc)
+            return None
+
+    # -----------------------------------------------------------------------
+    # run pool
+    # -----------------------------------------------------------------------
+    max_workers = min(32, (os.cpu_count() or 1))
+
+    log.info("Using %d worker threads", max_workers)
+
+    completed = 0
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {
+            pool.submit(_write_tile_gpkg, item): item[0]
+            for item in tiles.items()
+        }
+
+        for future in as_completed(futures):
+            if future.result():
+                completed += 1
+
+    log.info("Finished %d / %d tiles", completed, len(tiles))
+
+    file_handler.upload_folder(temporary_directory, destination)
+    log.info("All tiles uploaded to %s", destination)
 
 def main() -> None:   
     parser = argparse.ArgumentParser(description="Tool for generating toml configuration files for roofer")
@@ -561,6 +675,7 @@ def main() -> None:
     trigger_pdok_update.add_argument("--destination_s3_url", type=str, required=True, help="Destination S3 URL for the uploaded file")
     trigger_pdok_update.add_argument("--destination_s3_user", type=str, required=True, help="S3 user for authentication")
     trigger_pdok_update.add_argument("--destination_s3_key", type=str, required=True, help="S3 key for authentication")
+    trigger_pdok_update.add_argument("--s3_prefix", type=str, required=True, help="S3 prefix path for the uploaded file, e.g. kadaster/3d-basisvoorziening-features")
     trigger_pdok_update.add_argument("--trigger_update_url", type=str, required=True, help="URL to trigger the PDOK update")
     trigger_pdok_update.add_argument("--trigger_private_key_content", type=str, required=True, help="Private key content for triggering the update")
     trigger_pdok_update.set_defaults(func=trigger_pdok_update_operation)
@@ -570,6 +685,15 @@ def main() -> None:
     create_pdok_index.add_argument("--destination", type=str, required=True, help="Destination URI for the index, e.g. azure://destination/path/to/index.gpkg")
     create_pdok_index.add_argument("--temporary_directory", type=Path, required=True, help="Directory for temporary files")
     create_pdok_index.set_defaults(func=create_pdok_index_operation)
+
+    splitgpkg = subparsers.add_parser("splitgpkg")
+    splitgpkg.add_argument("--source",   type=str,  required=True,  help="handle://source")
+    splitgpkg.add_argument("--destination",   type=str,  required=True,  help="handle://destination")
+    splitgpkg.add_argument("--split_source", type=str, required=True, help="handle://splitsource.json")
+    splitgpkg.add_argument("--file_pattern", type=str, required=True, help="%s_2022_3dgeluid_gebouwen.zip")
+    splitgpkg.add_argument("--readme", type=str, nargs="*", required=True, help="%s_2022_3dgeluid_gebouwen.zip")
+    splitgpkg.add_argument("--temporary_directory", type=Path, required=True, help="Directory for temporary files")
+    splitgpkg.set_defaults(func=splitgpkg_operation)
 
     args = parser.parse_args()
     if args.command:
