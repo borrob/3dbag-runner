@@ -66,6 +66,27 @@ class SchemeFileHandler:
             self.file_handles.append(FileHandle(path, True))
             return path
 
+    def create_file(self, suffix: Optional[str] = None, text: Optional[str] = None) -> Path:
+        """
+        Create a temporary file with optional text content.
+        
+        Args:
+            suffix: Optional file suffix (e.g., '.gpkg', '.txt')
+            text: Optional text content to write to the file
+            
+        Returns:
+            Path to the created temporary file
+        """
+        if self.temporary_directory:
+            os.makedirs(self.temporary_directory, exist_ok=True)
+
+        with tempfile.NamedTemporaryFile(dir=self.temporary_directory, suffix=suffix, delete=False) as f:
+            if text is not None:
+                f.write(text.encode('utf-8'))
+            path = Path(f.name)
+            self.file_handles.append(FileHandle(path, True))
+            return path
+
     def delete_if_not_local(self, path: Path) -> None:
         """
         Delete temp file is aware if the file was already a pre-existing file on disk or a remote file downloaded to a temporary location,
@@ -98,3 +119,11 @@ class SchemeFileHandler:
     def upload_folder(self, folder: Path, uri: str) -> None:
         parsed_uri = urlparse(uri)
         self.scheme_handlers[parsed_uri.scheme].upload_folder(folder, uri)
+
+    def get_file_size(self, uri: str) -> int:
+        """
+        Get the size of a file in bytes at the specified URI.
+        The size check is performed by the handler corresponding to the URI's scheme.
+        """
+        parsed_uri = urlparse(uri)
+        return self.scheme_handlers[parsed_uri.scheme].get_file_size(uri)

@@ -60,3 +60,8 @@ class AbstractSchemeHandler(ABC):
     @abstractmethod
     def upload_stream_directory(stream: BinaryIO, uri: str, filename: str) -> None:
         pass
+
+    @staticmethod
+    @abstractmethod
+    def get_file_size(uri: str) -> int:
+        pass

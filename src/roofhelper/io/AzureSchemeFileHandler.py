@@ -187,3 +187,9 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         
         for t in _consumer_threads:
             t.join()
+
+    @staticmethod
+    def get_file_size(uri: str) -> int:
+        blob_client = BlobClient.from_blob_url(uri[8:])
+        blob_properties = blob_client.get_blob_properties()
+        return blob_properties.size

@@ -87,3 +87,8 @@ class FileSchemeFileHandler(AbstractSchemeHandler):
         dest_path = FileSchemeFileHandler._get_local_path(uri)
         with open(dest_path, "wb") as out_f:
             shutil.copyfileobj(stream, out_f)
+
+    @staticmethod
+    def get_file_size(uri: str) -> int:
+        source = FileSchemeFileHandler._get_local_path(uri)
+        return os.path.getsize(source)

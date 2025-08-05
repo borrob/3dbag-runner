@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from datetime import datetime
@@ -10,6 +11,9 @@ import fiona
 from shapely.geometry import Polygon, mapping
 
 from ..io import SchemeFileHandler
+from ..defautlogging import setup_logging
+
+log = setup_logging()
 
 
 PDOK_DELIVERY_SCHEMA = {
@@ -38,23 +42,23 @@ class PdokDeliveryProperties:
 def extract_ahn_key_from_filename(filename: str) -> Optional[str]:
     """
     Extracts AHN tile key from filename.
-    Expected pattern: <year>/geluid/<type>/<ahn_key>_<year>_3dgeluid_<TYPE>.zip
-    Example: 2022/geluid/tin/13bn1_2022_3dgeluid_TIN.zip -> 13bn1
+    Expected pattern: <ahn_key>_<anything>.zip
+    Example: 13bn1_something.zip -> 13bn1
     """
     # Remove directory path and extract just the filename
     basename = os.path.basename(filename)
     
     # Pattern to match AHN filenames
-    # Expects: <ahn_key>_<year>_3dgeluid_<TYPE>.zip
-    match = re.search(r'^([a-zA-Z0-9]+)_(\d{4})_3dgeluid_[^.]+\.zip$', basename)
+    # Expects: <ahn_key>_<anything>.zip
+    match = re.search(r'^([a-zA-Z0-9]+)_.*\.zip$', basename)
     if not match:
         return None
     
-    ahn_key = match.group(1).upper()  # Convert to uppercase to match ahn.json keys
+    ahn_key = match.group(1).lower()  # Convert to lowercase to match ahn.json keys
     return ahn_key
 
 
-def create_pdok_index(source_uri: str, ahn_json_path: Path, output_gpkg_path: Path, 
+def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path, 
                      download_url_prefix: str,
                      temporary_directory: Optional[Path] = None) -> None:
     """
@@ -72,14 +76,16 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, output_gpkg_path: Pa
     
     # Load AHN geometry data
     with open(ahn_json_path, 'r') as f:
-        ahn_geometries = json.load(f)
-    
-    # Collect all features to write to geopackage
-    features = []
+        ahn_data = json.load(f)
+        # Convert all keys to lowercase for consistent matching
+        ahn_geometries = {key.lower(): value for key, value in ahn_data.items()}
     
     # Expected folder structure: /<year>/geluid/<type>/
     folder_types = ['gebouwen', 'tin', 'bodemblakken']
     
+    # Collect features grouped by folder type
+    features_by_type: dict[str, list[dict[str, Any]]] = {folder_type: [] for folder_type in folder_types}
+
     # List all files in source directory
     for _, file_path in file_handler.list_files(source_uri, regex=r'.*\.zip$'):
         # Parse the file path to extract year and check if it matches expected structure
@@ -98,6 +104,7 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, output_gpkg_path: Pa
         # Check if path contains 'geluid' and one of the expected types
         if len(path_parts) >= 3 and path_parts[-3] == 'geluid' and path_parts[-2] in folder_types:
             filename = path_parts[-1]
+            folder_type = path_parts[-2]  # Extract the folder type
             
             # Extract AHN key from filename
             ahn_key = extract_ahn_key_from_filename(filename)
@@ -118,9 +125,8 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, output_gpkg_path: Pa
             start_date = datetime(year, 1, 1)
             end_date = datetime(year, 12, 31)
             
-            # Get file size (this would require downloading, so we'll set to 0 for now)
-            # In a real implementation, you might want to get this from file metadata
-            file_size = 0
+            # Get file size using the SchemeFileHandler
+            file_size = file_handler.get_file_size(file_path)
             
             # Construct download link
             # Remove leading slash if present to avoid double slashes
@@ -139,13 +145,29 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, output_gpkg_path: Pa
                     'einddatum': end_date,
                 }
             }
-            features.append(feature)
+            features_by_type[folder_type].append(feature)
     
-    # Write features to geopackage
-    if features:
-        with fiona.open(output_gpkg_path, 'w', driver='GPKG', schema=PDOK_DELIVERY_SCHEMA, 
-                       crs='EPSG:28992', layer='pdok_delivery') as gpkg:
-            gpkg.writerecords(features)
-        print(f"Created PDOK index with {len(features)} features at {output_gpkg_path}")
+    # Write features to geopackage, one layer per folder type
+    total_features = sum(len(features) for features in features_by_type.values())
+    
+    if total_features > 0:
+        # Create a temporary file using SchemeFileHandler
+        temp_file = file_handler.create_file(suffix=".gpkg")
+        
+        try:
+            # Write each folder type to a separate layer
+            for folder_type, features in features_by_type.items():
+                if features:  # Only create layer if there are features
+                    with fiona.open(temp_file, 'w', driver='GPKG', schema=PDOK_DELIVERY_SCHEMA, crs='EPSG:28992', layer=folder_type) as gpkg:
+                        gpkg.writerecords(features)
+                    log.info(f"Created layer '{folder_type}' with {len(features)} features")
+            
+            # Upload temporary file to destination URI using SchemeFileHandler
+            file_handler.upload_file_direct(temp_file, str(destination))
+            
+            log.info(f"Created PDOK index with {total_features} total features across {len([t for t, f in features_by_type.items() if f])} layers at {destination}")
+        finally:
+            # Delete the temporary file using SchemeFileHandler
+            file_handler.delete_if_not_local(temp_file)
     else:
-        print("No valid files found matching the expected structure")
+        log.info("No valid files found matching the expected structure")

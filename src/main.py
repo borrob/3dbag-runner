@@ -30,6 +30,7 @@ from roofhelper.io import SchemeFileHandler, download_if_not_exists
 from roofhelper.kadaster import bag
 from roofhelper.kadaster.geo import grid_create_on_intersecting_centroid
 from roofhelper.pdok import PdokS3Uploader, PdokUpdateTrigger, UploadResult
+from roofhelper.pdok.PdokDeliveryProperties import create_pdok_index
 from roofhelper.pointcloud import laz
 from roofhelper.roofer import PointcloudConfig, roofer_config_generate
 
@@ -181,7 +182,7 @@ def runsingleroofertile(extent: tuple[float, float, float, float],
                                             output_directory=str(temporary_directory))
         
         log.info(f"Generated the following configuration:\n{config}")
-        config_path = file_handler.create_text_file(config, ".toml")
+        config_path = file_handler.create_file(suffix=".toml", text=config)
 
         try: 
             log.info(f"Start running roofer for {destination}")
@@ -476,11 +477,7 @@ def trigger_pdok_update(source: str,
         exit(-1)
 
 def create_pdok_index_operation(args: argparse.Namespace) -> None:
-    create_pdok_index()
-
-def create_pdok_index() -> None:
-    # TODO: Implement PDOK index creation functionality
-    pass
+    create_pdok_index(args.source, args.ahn_source, args.destination, args.url_prefix, args.temporary_directory)
 
 def splitgpkg_operation(args: argparse.Namespace) -> None:
     splitgpkg(args.source, args.destination, args.split_source, args.file_pattern, args.readme, args.temporary_directory)
@@ -680,11 +677,6 @@ def main() -> None:
     trigger_pdok_update.add_argument("--trigger_private_key_content", type=str, required=True, help="Private key content for triggering the update")
     trigger_pdok_update.set_defaults(func=trigger_pdok_update_operation)
     
-    create_pdok_index = subparsers.add_parser("create_pdok_index", help="Create PDOK index")
-    create_pdok_index.add_argument("--source", type=str, required=True, help="Source URI of the geopackage to index, e.g. azure://source/path/to/geopackage.gpkg")
-    create_pdok_index.add_argument("--destination", type=str, required=True, help="Destination URI for the index, e.g. azure://destination/path/to/index.gpkg")
-    create_pdok_index.add_argument("--temporary_directory", type=Path, required=True, help="Directory for temporary files")
-    create_pdok_index.set_defaults(func=create_pdok_index_operation)
 
     splitgpkg = subparsers.add_parser("splitgpkg")
     splitgpkg.add_argument("--source",   type=str,  required=True,  help="handle://source")
@@ -694,6 +686,14 @@ def main() -> None:
     splitgpkg.add_argument("--readme", type=str, nargs="*", required=True, help="%s_2022_3dgeluid_gebouwen.zip")
     splitgpkg.add_argument("--temporary_directory", type=Path, required=True, help="Directory for temporary files")
     splitgpkg.set_defaults(func=splitgpkg_operation)
+
+    create_pdok_index = subparsers.add_parser("create_pdok_index", help="Create PDOK index")
+    create_pdok_index.add_argument("--source",   type=str,  required=True,  help="handle://source")
+    create_pdok_index.add_argument("--destination",   type=str,  required=True,  help="handle://destination")
+    create_pdok_index.add_argument("--ahn_source", type=str, required=True, help="handle://splitsource.json")
+    create_pdok_index.add_argument("--url_prefix", type=str, required=True, help="%s_2022_3dgeluid_gebouwen.zip")
+    create_pdok_index.add_argument("--temporary_directory", type=Path, required=True, help="Directory for temporary files")
+    create_pdok_index.set_defaults(func=create_pdok_index_operation)
 
     args = parser.parse_args()
     if args.command:

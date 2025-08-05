@@ -249,5 +249,56 @@
             ],
             "console": "integratedTerminal"
         },
+        {
+            "name": "Python: Debug splitgpkg",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "args": [
+                "splitgpkg",
+                "--source", "file://tempdir/input",
+                "--destination", "file://tempdir/output",
+                "--split_source", "file://tempdir/split_config.json",
+                "--file_pattern", "%s_2022_3dgeluid_gebouwen.zip",
+                "--readme", "A", "multiline", "readme",
+                "--temporary_directory", "tempdir"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Debug trigger_pdok_update",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "args": [
+                "trigger_pdok_update",
+                "--source", "azure://<source_sas_token>",
+                "--destination_s3_url", "https://s3.example.com",
+                "--destination_s3_user", "<s3_user>",
+                "--destination_s3_key", "<s3_key>",
+                "--s3_prefix", "kadaster/3d-basisvoorziening-features",
+                "--trigger_update_url", "https://trigger.example.com",
+                "--trigger_private_key_content", "<private_key_content>"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Debug create_pdok_index",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "args": [
+                "create_pdok_index",
+                "--source", "file://tempdir/input",
+                "--ahn_json", "docker/ahn.json",
+                "--destination", "file://tempdir/pdok_index.gpkg",
+                "--download_url_prefix", "https://downloads.example.com/",
+                "--temporary_directory", "tempdir"
+            ],
+            "console": "integratedTerminal"
+        },
     ]
 }
