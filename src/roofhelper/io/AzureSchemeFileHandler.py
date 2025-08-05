@@ -10,7 +10,7 @@ import tempfile
 from threading import Thread
 from typing import BinaryIO, Generator, Optional
 from urllib.parse import urlparse, urlunparse
-from azure.storage.blob import BlobClient, ContainerClient
+from azure.storage.blob import BlobClient, ContainerClient, BlobProperties
 
 from .AbstractSchemeFileHandler import AbstractSchemeHandler
 from .FileHandle import FileHandle
@@ -91,11 +91,11 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         # Extract the SAS URI components
         sas_uri = uri[8:]
         parsed_uri = urlparse(sas_uri)
-        container_name = parsed_uri.path.split('/')[1]  # Container is assumed to be the first segment of the path
-        path_prefix = '/'.join(parsed_uri.path.split('/')[2:])  # Any remaining part is the prefix for the walk
 
-        if path_prefix != None and not path_prefix.endswith("/"):
-            path_prefix += "/"
+        path_parts = parsed_uri.path.split('/')
+        container_name = parsed_uri.path.split('/')[1]  # Container is assumed to be the first segment of the path
+        path_prefix: Optional[str] = "".join(path_parts[2:])
+
 
         # Compile the regex filter if provided
         pattern = re.compile(regex) if regex else None
@@ -108,12 +108,22 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
 
         # Walk through the blobs in the container
         # Use delimiter for shallow listing, no delimiter for recursive listing
-        walk_kwargs = {"name_starts_with": path_prefix}
-        if not recursive:
-            walk_kwargs["delimiter"] = "/"
+        if recursive:
+            if path_prefix == "":
+                path_prefix = None
+            blob_iter = container_client.list_blobs(name_starts_with=path_prefix)
+        else:
+            if path_prefix == None:
+                path_prefix = ""
+
+            blob_iter = container_client.walk_blobs(name_starts_with=path_prefix, delimiter='/')
+
             
-        for blob in container_client.walk_blobs(**walk_kwargs):           
+        for blob in blob_iter:
+            if not isinstance(blob, BlobProperties):
+                break
             # Create the full URL with the SAS token
+            
             blob_url = f"https://{parsed_uri.netloc}/{container_name}/{blob.name}?{sas_token}"
             
             # If regex is provided, filter files based on it

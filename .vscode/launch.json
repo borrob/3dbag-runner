@@ -162,7 +162,6 @@
                 "--pointclouds_low_lod_labels",
                 "2022",
                 "--destination", "file://local.city.json",
-
                 "--extent", "90000.0","434000.0", "92000.0", "436000.0",
                 "--year", "2022",
             ],
@@ -293,9 +292,9 @@
             "args": [
                 "create_pdok_index",
                 "--source", "file://tempdir/input",
-                "--ahn_json", "docker/ahn.json",
+                "--ahn_source", "docker/ahn.json",
                 "--destination", "file://tempdir/pdok_index.gpkg",
-                "--download_url_prefix", "https://downloads.example.com/",
+                "--url_prefix", "https://downloads.example.com/",
                 "--temporary_directory", "tempdir"
             ],
             "console": "integratedTerminal"
