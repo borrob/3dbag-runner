@@ -156,21 +156,30 @@ def translate_cityjson(data: dict[Any, Any]) -> dict[Any, Any]:
     translate_base_y = 472700.0
     translate_base_z = 0
 
+    scale_base_x = 0.001
+    scale_base_y = 0.001
+    scale_base_z = 0.001
+
     scale_x, scale_y, scale_z = data["transform"]["scale"]
     translate_x, translate_y, translate_z = data["transform"]["translate"]
 
-    dX = translate_x - translate_base_x
-    dY = translate_y - translate_base_y 
-    dZ = translate_z - translate_base_z 
+    dX = (translate_x - translate_base_x) / scale_x
+    dY = (translate_y - translate_base_y) / scale_y
+    dZ = (translate_z - translate_base_z) / scale_z
+
+    scale_difference_x = scale_base_x / scale_x
+    scale_difference_y = scale_base_y / scale_y
+    scale_difference_z = scale_base_z / scale_z
 
     for i, (x, y, z) in enumerate(data["vertices"]):
         data["vertices"][i] = (
-            int(round(x + dX / scale_x)),
-            int(round(y + dY / scale_y)),
-            int(round(z + dZ / scale_z))
+            int(round((x + dX) / scale_difference_x)),
+            int(round((y + dY) / scale_difference_y)),
+            int(round((z + dZ) / scale_difference_z))
         )
 
     data["transform"]["translate"] = (translate_base_x, translate_base_y, translate_base_z)
+    data["transform"]["scale"] = (scale_base_x, scale_base_y, scale_base_z)
 
     return data
 
