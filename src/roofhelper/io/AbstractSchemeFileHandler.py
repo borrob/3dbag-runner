@@ -23,7 +23,12 @@ class AbstractSchemeHandler(ABC):
 
     @staticmethod
     @abstractmethod
-    def list_files(uri: str, regex: str = '') -> Generator[tuple[str, str]]:
+    def list_files_shallow(uri: str, regex: str = '') -> Generator[tuple[str, str]]:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def list_files_recursive(uri: str, regex: str = '') -> Generator[tuple[str, str]]:
         pass
 
     @staticmethod

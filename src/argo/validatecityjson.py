@@ -57,7 +57,7 @@ def workerfunc(input: str) -> None:
         # Sanitize elevations
         check_file(data, name)
 
-    files =  handler.list_files(input, regex="(?i)^.*city\\.json$")
+    files =  handler.list_files_shallow(input, regex="(?i)^.*city\\.json$")
     with ThreadPoolExecutor(max_workers=32) as pool:
         futures = [pool.submit(_worker, name, uri) for name, uri in files]
 

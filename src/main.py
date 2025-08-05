@@ -54,7 +54,7 @@ def createlazdb(uri: str, target: Path, pattern: str = "(?i)^.*(las|laz)$", epsg
                 'date': laz_header.creation_date if creation_date != None else creation_date
             }
     
-    file_iterator = handler.list_files(uri, regex=pattern)
+    file_iterator = handler.list_files_shallow(uri, regex=pattern)
     counter: int = 0
     for blob_chunk in processing.chunked(file_iterator, processing_chunk_size):
         counter += len(blob_chunk)
@@ -285,7 +285,7 @@ def pointcloudsplit(input_connection: str, output_connection: str, grid_size: in
     os.makedirs(temporary_directory, exist_ok=True)
     handler = SchemeFileHandler(temporary_directory)
 
-    file_list = handler.list_files(input_connection, regex=r"(?i)^.*\.LAZ$")
+    file_list = handler.list_files_shallow(input_connection, regex=r"(?i)^.*\.LAZ$")
     
     
     def _upload_and_cleanup(file_path: Path, filename: str) -> None:
@@ -351,7 +351,7 @@ def height_database(source: str, destination: str, temporary_directory: Path, is
         log.info(f"Start retrieving city.json files")
         futures = []
         with ThreadPoolExecutor() as executor:
-            for _, uri in scheme_handler.list_files(source, regex="(?i)^.*city\\.json$"):
+            for _, uri in scheme_handler.list_files_shallow(source, regex="(?i)^.*city\\.json$"):
                 futures.append(executor.submit(_reader, uri))
 
             for future in as_completed(futures):

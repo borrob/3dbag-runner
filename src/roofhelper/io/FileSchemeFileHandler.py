@@ -26,19 +26,47 @@ class FileSchemeFileHandler(AbstractSchemeHandler):
         return FileHandle(FileSchemeFileHandler._get_local_path(uri, file), False)
     
     @staticmethod
-    def list_files(uri: str, regex: Optional[str] = None) -> Generator[tuple[str, str]]:
+    def _list_files_impl(uri: str, regex: Optional[str] = None, recursive: bool = False) -> Generator[tuple[str, str]]:
+        """
+        Internal implementation for listing files in local filesystem.
+        
+        Args:
+            uri: File URI to list files from
+            regex: Optional regex pattern to filter files
+            recursive: If True, list files recursively; if False, only list files in the current directory
+        """
         path = FileSchemeFileHandler._get_local_path(uri)
         if not os.path.isdir(path):
             raise ValueError(f"The provided uri '{uri}' is not a valid directory.")
 
-        for entry in os.listdir(path):
-            full_path = os.path.join(path, entry)
-            if os.path.isfile(full_path):
-                if regex is not None:
-                    if re.match(regex, full_path):
+        if recursive:
+            for root, dirs, files in os.walk(path):
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    if regex is not None:
+                        if re.match(regex, full_path):
+                            yield (file, "file://" + full_path)
+                    else:
+                        yield (file, "file://" + full_path)
+        else:
+            for entry in os.listdir(path):
+                full_path = os.path.join(path, entry)
+                if os.path.isfile(full_path):
+                    if regex is not None:
+                        if re.match(regex, full_path):
+                            yield (entry, "file://" + full_path)
+                    else:
                         yield (entry, "file://" + full_path)
-                else:
-                    yield (entry, "file://" + full_path)
+    
+    @staticmethod
+    def list_files_shallow(uri: str, regex: Optional[str] = None) -> Generator[tuple[str, str]]:
+        """List files in the current directory (shallow listing)."""
+        return FileSchemeFileHandler._list_files_impl(uri, regex, recursive=False)
+
+    @staticmethod
+    def list_files_recursive(uri: str, regex: Optional[str] = None) -> Generator[tuple[str, str]]:
+        """List files recursively through all subdirectories."""
+        return FileSchemeFileHandler._list_files_impl(uri, regex, recursive=True)
 
     @staticmethod
     def upload_file_directory(file: Path, uri: str, filename: Optional[str]) -> None:

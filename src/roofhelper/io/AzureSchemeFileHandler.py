@@ -79,7 +79,15 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
             blob_client.upload_blob(f, overwrite=True)
 
     @staticmethod
-    def list_files(uri: str, regex: str = '') -> Generator[tuple[str, str]]:
+    def _list_files_impl(uri: str, regex: str = '', recursive: bool = False) -> Generator[tuple[str, str]]:
+        """
+        Internal implementation for listing files in Azure blob storage.
+        
+        Args:
+            uri: Azure URI to list files from
+            regex: Optional regex pattern to filter files
+            recursive: If True, list files recursively; if False, only list files in the current directory
+        """
         # Extract the SAS URI components
         sas_uri = uri[8:]
         parsed_uri = urlparse(sas_uri)
@@ -99,7 +107,12 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         container_client = ContainerClient.from_container_url(f"https://{parsed_uri.netloc}/{container_name}?{sas_token}")
 
         # Walk through the blobs in the container
-        for blob in container_client.walk_blobs(name_starts_with=path_prefix, delimiter="/"):           
+        # Use delimiter for shallow listing, no delimiter for recursive listing
+        walk_kwargs = {"name_starts_with": path_prefix}
+        if not recursive:
+            walk_kwargs["delimiter"] = "/"
+            
+        for blob in container_client.walk_blobs(**walk_kwargs):           
             # Create the full URL with the SAS token
             blob_url = f"https://{parsed_uri.netloc}/{container_name}/{blob.name}?{sas_token}"
             
@@ -109,6 +122,16 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
             
             # Prefix with 'azure://' and yield the result
             yield os.path.basename(blob.name), f"azure://{blob_url}"
+
+    @staticmethod
+    def list_files_shallow(uri: str, regex: str = '') -> Generator[tuple[str, str]]:
+        """List files in the current directory (shallow listing)."""
+        return AzureSchemeFileHandler._list_files_impl(uri, regex, recursive=False)
+
+    @staticmethod
+    def list_files_recursive(uri: str, regex: str = '') -> Generator[tuple[str, str]]:
+        """List files recursively through all subdirectories."""
+        return AzureSchemeFileHandler._list_files_impl(uri, regex, recursive=True)
         
     @staticmethod # change to only 
     def get_bytes(uri: str) -> bytes:

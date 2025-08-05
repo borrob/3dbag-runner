@@ -82,7 +82,7 @@ def workerfunc(input: str, output: str) -> None:
         handler.upload_bytes_directory(stream, output, name)
         log.info(f"Uploaded {name}")
 
-    files =  handler.list_files(input, regex="(?i)^.*city\\.json$")
+    files =  handler.list_files_shallow(input, regex="(?i)^.*city\\.json$")
     with ThreadPoolExecutor(max_workers=32) as pool:
         futures = [pool.submit(_worker, name, uri) for name, uri in files]
 
