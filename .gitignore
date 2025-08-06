@@ -25,3 +25,11 @@ roofer.log.json
 
 # Workflows output
 generated/*.yaml
+
+# Azure storage emulator files
+__azurite_*
+__blobstorage__
+AzuriteConfig
+
+# Python test coverage
+.coverage
