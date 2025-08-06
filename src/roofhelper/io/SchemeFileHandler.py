@@ -27,11 +27,11 @@ class SchemeFileHandler:
         self.file_handles.append(handle)
         return handle.path
 
-    def list_files_shallow(self, uri: str, regex: str = '') -> Generator[tuple[str, str]]:
+    def list_files_shallow(self, uri: str, regex: str = '') -> Generator[tuple[str, str, str]]:
         parsed_uri = urlparse(uri)
         return self.scheme_handlers[parsed_uri.scheme].list_files_shallow(uri, regex)
 
-    def list_files_recursive(self, uri: str, regex: str = '') -> Generator[tuple[str, str]]:
+    def list_files_recursive(self, uri: str, regex: str = '') -> Generator[tuple[str, str, str]]:
         parsed_uri = urlparse(uri)
         return self.scheme_handlers[parsed_uri.scheme].list_files_recursive(uri, regex)
 

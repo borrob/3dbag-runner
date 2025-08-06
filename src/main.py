@@ -42,7 +42,7 @@ def createlazdb_operation(args: argparse.Namespace) -> None:
 def createlazdb(uri: str, target: Path, pattern: str = "(?i)^.*(las|laz)$", epsg: int = 28992, processing_chunk_size: int = 100) -> None:
     handler = SchemeFileHandler(Path(""))
 
-    def _worker(blob: tuple[str, str], uri: str, creation_date: Optional[date] = None) -> dict[str, Any]:
+    def _worker(blob: tuple[str, str, str]) -> dict[str, Any]:
         """ Used in createlazdb with multiprocessing to processes multiple laz files in parallel """
         header_raw = handler.get_bytes_range(blob[1], 0, 4096)
         with laspy.open(BytesIO(header_raw)) as laz_file:
@@ -51,7 +51,7 @@ def createlazdb(uri: str, target: Path, pattern: str = "(?i)^.*(las|laz)$", epsg
             return {
                 'geometry': extent_polygon,
                 'path': blob[1],
-                'date': laz_header.creation_date if creation_date != None else creation_date
+                'date': laz_header.creation_date
             }
     
     file_iterator = handler.list_files_shallow(uri, regex=pattern)
@@ -296,7 +296,7 @@ def pointcloudsplit(input_connection: str, output_connection: str, grid_size: in
         except Exception as e:
             log.error(f"Failed to process {file_path}: {e}")
 
-    for file_name, file_uri in file_list:
+    for file_name, file_uri, _ in file_list:
         log.info(f"Processing {file_name}")
         os.makedirs(temporary_directory, exist_ok=True)
 
@@ -351,7 +351,7 @@ def height_database(source: str, destination: str, temporary_directory: Path, is
         log.info(f"Start retrieving city.json files")
         futures = []
         with ThreadPoolExecutor() as executor:
-            for _, uri in scheme_handler.list_files_shallow(source, regex="(?i)^.*city\\.json$"):
+            for _, uri, _ in scheme_handler.list_files_shallow(source, regex="(?i)^.*city\\.json$"):
                 futures.append(executor.submit(_reader, uri))
 
             for future in as_completed(futures):

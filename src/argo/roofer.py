@@ -1,7 +1,7 @@
 from hera.workflows import Artifact, DAG, WorkflowTemplate, Parameter, Script
 from hera.workflows.models.io.argoproj.workflow.v1alpha1 import RetryStrategy
 
-from argodefaults import argo_worker, MEMORY_EMPTY_DIR
+from .argodefaults import argo_worker, MEMORY_EMPTY_DIR
 
 # Create a list to store the futures
 @argo_worker(outputs=Artifact(name="queue", path="/workflow/queue.json"), volumes=MEMORY_EMPTY_DIR) 
@@ -63,7 +63,7 @@ def workerfunc(workerid: int, footprints: str, year: int, dsm: str, ahn4: str, a
     local_queue = [x for x in global_queue if int(x["worker"]) == workerid]
     logger.info(f"Worker has to process {len(local_queue)} items of the queue")
 
-    file_handler = SchemeFileHandler("/workflow/footprints")
+    file_handler = SchemeFileHandler(Path("/workflow/footprints"))
     footprints_file = file_handler.download_file(footprints)
 
     def process_task(index: int, work: dict[str, str]) -> None:
@@ -107,7 +107,7 @@ with WorkflowTemplate(name="roofer",
                           Parameter(name="workercount", default="1")
                       ]) as w:
     with DAG(name="rooferdag"):
-        queue: Script = queuefunc(arguments={"workercount": w.get_parameter("workercount"), 
+        queue: Script = queuefunc(arguments={"workercount": w.get_parameter("workercount"), # type: ignore
                                              "footprints": w.get_parameter("footprints"), 
                                              "cityjsonfolder": w.get_parameter("destination"),
                                              "year": w.get_parameter("year")})# type: ignore

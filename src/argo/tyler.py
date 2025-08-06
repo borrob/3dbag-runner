@@ -1,5 +1,5 @@
 from hera.workflows import Artifact, DAG, WorkflowTemplate, Script, Parameter
-from argodefaults import argo_worker, MEMORY_EMPTY_DIR
+from .argodefaults import argo_worker, MEMORY_EMPTY_DIR
 
 
 # Create a list to store the futures
@@ -32,7 +32,7 @@ def queuefunc(workercount: int, source: str) -> None:
         return x // region_size_m, y // region_size_m
     
     buckets: dict[tuple[int, int], list[str]] = defaultdict(list)
-    for name, uri in file_handler.list_files_shallow(uri=source, regex="(i?)^.*\\.city\\.json$"):
+    for name, uri, _ in file_handler.list_files_shallow(uri=source, regex="(i?)^.*\\.city\\.json$"):
         x, y = _parse_tile_coords(name)
         buckets[region_key(x, y)].append(uri)
 
@@ -79,7 +79,7 @@ def workerfunc(workerid: int, mode: str, intermediate: str) -> None:
     local_queue: list[list[str]] = [x["partition"] for x in global_queue if int(x["worker"]) == workerid]
     logger.info(f"Worker has to process {len(local_queue)} items of the queue")
 
-    handler = SchemeFileHandler("/workflow/handler")
+    handler = SchemeFileHandler(Path("/workflow/handler"))
     def _prepare_files(index: int, partition: list[str]) -> None: 
         logger.info(f"Downloading [{index}/{len(local_queue)}].")
         
@@ -93,7 +93,7 @@ def workerfunc(workerid: int, mode: str, intermediate: str) -> None:
         logger.info(f"Running tyler [{index}/{total}] {folder}.")
         tyler_output_directory = f"/workflow/output/{index}"
 
-        tyler_runner(f"file://{folder}", f"file://{tyler_output_directory}", Path(f"/workflow/tempdir/{index}"), mode, "/metadata.city.json")
+        tyler_runner(f"file://{folder}", f"file://{tyler_output_directory}", Path(f"/workflow/tempdir/{index}"), mode, Path("/metadata.city.json"))
         
         zip_name = f"/workflow/zips/{workerid}_{index}.zip"
         zip.zip_dir(Path(tyler_output_directory), Path(zip_name))
@@ -130,7 +130,7 @@ def mergerfunc(intermediate: str, destination: str) -> None:
     handler = SchemeFileHandler(Path("/workflow/downloads"))
     
     zipfile_list = handler.list_files_shallow(uri=intermediate, regex="(i?)^.*\\.zip$")
-    for zipfile_index, (zipfile_name, zipfile_uri) in enumerate(zipfile_list):
+    for zipfile_index, (zipfile_name, zipfile_uri, _) in enumerate(zipfile_list):
         log.info(f"Downloading and unzipping {zipfile_name}")
 
         zip_path = handler.download_file(zipfile_uri)
@@ -165,7 +165,7 @@ with WorkflowTemplate(name="tyler",
                                  Parameter(name="mode", default="buildings", enum=["buildings", "terrain"]),
                                  Parameter(name="workercount", default="5")]) as w:
     with DAG(name="tylerdag"):
-        queue: Script = queuefunc(arguments={
+        queue: Script = queuefunc(arguments={ # type: ignore
                                    "workercount": w.get_parameter("workercount"),
                                    "source": w.get_parameter("source")})  # type: ignore
 
@@ -173,7 +173,7 @@ with WorkflowTemplate(name="tyler",
                             arguments=[queue.get_artifact("queue").with_name("queue"), {"workerid": "{{item}}", # type: ignore
                                       "mode": w.get_parameter("mode"),
                                       "intermediate": w.get_parameter("intermediate")}]) # type: ignore
-        merger: Script = mergerfunc(arguments={"intermediate": w.get_parameter("intermediate"),
+        merger: Script = mergerfunc(arguments={"intermediate": w.get_parameter("intermediate"), # type: ignore
                                        "destination": w.get_parameter("destination")}) # type: ignore
         queue >> worker >> merger # type: ignore          
         

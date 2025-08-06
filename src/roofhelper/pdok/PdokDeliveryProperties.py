@@ -87,7 +87,7 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path,
     features_by_type: dict[str, list[dict[str, Any]]] = {folder_type: [] for folder_type in folder_types}
 
     # List all files in source directory recursively
-    for _, file_path in file_handler.list_files_recursive(source_uri, regex=r'.*\.zip$'):
+    for _, file_path, _ in file_handler.list_files_recursive(source_uri, regex=r'.*\.zip$'):
         # Parse the file path to extract year and check if it matches expected structure
         # Expected: /<year>/geluid/<type>/<filename>.zip
         path_parts = file_path.strip('/').split('/')
