@@ -1,11 +1,12 @@
 from hera.workflows import DAG, WorkflowTemplate, Script, Parameter
-from argodefaults import argo_worker
+from .argodefaults import argo_worker
 
 # Create a list to store the futures
 @argo_worker()
 def workerfunc(destination: str, year: int) -> None: 
     import logging
     import os
+    from pathlib import Path
     from main import createbagdb
     from roofhelper.defautlogging import setup_logging
     from roofhelper.io import SchemeFileHandler
@@ -14,11 +15,11 @@ def workerfunc(destination: str, year: int) -> None:
 
     logger.info("Creating index of laz files")
     os.makedirs("/workflow/cache", exist_ok=True)
-    createbagdb("/workflow/cache", "/workflow/db.gpkg", year)
+    createbagdb(Path("/workflow/cache"), Path("/workflow/db.gpkg"), year)
 
     logger.info("Done creating the database, start uploading")
-    handler = SchemeFileHandler("/workflow/cache")
-    handler.upload_file_direct("/workflow/db.gpkg", destination)
+    handler = SchemeFileHandler(Path("/workflow/cache"))
+    handler.upload_file_direct(Path("/workflow/db.gpkg"), destination)
 
     logger.info("Done")
 

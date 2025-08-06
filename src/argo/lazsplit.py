@@ -1,5 +1,5 @@
 from hera.workflows import DAG, WorkflowTemplate, Parameter, Artifact, Script
-from argodefaults import SIZE_D2, argo_worker, default_worker, MEMORY_EMPTY_DIR
+from .argodefaults import SIZE_D2, argo_worker, default_worker, MEMORY_EMPTY_DIR
 
 @default_worker(outputs=Artifact(name="queue", path="/workflow/queue.json")) 
 def workerfunc(source: str, destination: str, gridsize: int) -> None:
@@ -19,7 +19,7 @@ with WorkflowTemplate(name="lazsplit",
                           Parameter(name="grid-size", default="250"),
                       ]) as w:
     with DAG(name="maindag"):
-        worker: Script = workerfunc(arguments={"source": w.get_parameter("source"),
+        worker: Script = workerfunc(arguments={"source": w.get_parameter("source"), # type: ignore
                                                "destination": w.get_parameter("destination"),
                                                "gridsize": w.get_parameter("grid-size")})# type: ignore
 

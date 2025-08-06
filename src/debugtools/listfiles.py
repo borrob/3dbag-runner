@@ -45,7 +45,7 @@ def create_gpkg_with_rectangles(filenames: list[str], output_gpkg_path: str) -> 
 # Example usage
 handler = SchemeFileHandler()
 sas_token = "azure://<sas_token>"
-names = [x[0] for x in handler.list_files_shallow(sas_token)]
+names = [entry.name for entry in handler.list_entries_shallow(sas_token)]
 create_gpkg_with_rectangles(names, "2023fix.gpkg")
 
 exit()

@@ -11,6 +11,7 @@ from .AbstractSchemeFileHandler import AbstractSchemeHandler
 from .AzureSchemeFileHandler import AzureSchemeFileHandler
 from .FileHandle import FileHandle
 from .FileSchemeFileHandler import FileSchemeFileHandler
+from .EntryProperties import EntryProperties
 
 
 class SchemeFileHandler:
@@ -27,13 +28,13 @@ class SchemeFileHandler:
         self.file_handles.append(handle)
         return handle.path
 
-    def list_files_shallow(self, uri: str, regex: str = '') -> Generator[tuple[str, str, str]]:
+    def list_entries_shallow(self, uri: str, regex: str = '') -> Generator[EntryProperties]:
         parsed_uri = urlparse(uri)
-        return self.scheme_handlers[parsed_uri.scheme].list_files_shallow(uri, regex)
+        return self.scheme_handlers[parsed_uri.scheme].list_entries_shallow(uri, regex)
 
-    def list_files_recursive(self, uri: str, regex: str = '') -> Generator[tuple[str, str, str]]:
+    def list_entries_recursive(self, uri: str, regex: str = '') -> Generator[EntryProperties]:
         parsed_uri = urlparse(uri)
-        return self.scheme_handlers[parsed_uri.scheme].list_files_recursive(uri, regex)
+        return self.scheme_handlers[parsed_uri.scheme].list_entries_recursive(uri, regex)
 
     def upload_file_directory(self, file: Path, uri: str, filename: Optional[str] = None) -> None:
         parsed_uri = urlparse(uri)

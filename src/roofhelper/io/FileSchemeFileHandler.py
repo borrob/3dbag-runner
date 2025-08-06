@@ -6,9 +6,11 @@ import re
 import shutil
 from typing import BinaryIO, Generator, Optional
 from urllib.parse import urlparse
+from datetime import datetime
 
 from .AbstractSchemeFileHandler import AbstractSchemeHandler
 from .FileHandle import FileHandle
+from .EntryProperties import EntryProperties
 
 class FileSchemeFileHandler(AbstractSchemeHandler):
     @staticmethod
@@ -26,7 +28,7 @@ class FileSchemeFileHandler(AbstractSchemeHandler):
         return FileHandle(FileSchemeFileHandler._get_local_path(uri, file), False)
     
     @staticmethod
-    def _list_files_impl(uri: str, regex: Optional[str] = None, recursive: bool = False) -> Generator[tuple[str, str, str]]:
+    def _list_files_impl(uri: str, regex: Optional[str] = None, recursive: bool = False) -> Generator[EntryProperties]:
         """
         Internal implementation for listing files in local filesystem.
         
@@ -41,38 +43,79 @@ class FileSchemeFileHandler(AbstractSchemeHandler):
 
         if recursive:
             for root, dirs, files in os.walk(path):
+                # Yield directories first
+                for dir_name in dirs:
+                    full_path = os.path.join(root, dir_name)
+                    relative_path = os.path.relpath(full_path, path)
+                    stat_info = os.stat(full_path)
+                    
+                    if regex is not None:
+                        if not re.match(regex, full_path):
+                            continue
+                    
+                    entry = EntryProperties(
+                        name=dir_name,
+                        full_uri="file://" + full_path,
+                        path=relative_path,
+                        is_file=False,
+                        size=None,  # Directories don't have a meaningful size
+                        last_modified=datetime.fromtimestamp(stat_info.st_mtime),
+                    )
+                    yield entry
+                
+                # Then yield files
                 for file in files:
                     full_path = os.path.join(root, file)
                     relative_path = os.path.relpath(full_path, path)
+                    stat_info = os.stat(full_path)
+                    
                     if regex is not None:
-                        if re.match(regex, full_path):
-                            yield (file, "file://" + full_path, relative_path)
-                    else:
-                        yield (file, "file://" + full_path, relative_path)
+                        if not re.match(regex, full_path):
+                            continue
+                    
+                    entry = EntryProperties(
+                        name=file,
+                        full_uri="file://" + full_path,
+                        path=relative_path,
+                        is_file=True,
+                        size=stat_info.st_size,
+                        last_modified=datetime.fromtimestamp(stat_info.st_mtime),
+                    )
+                    yield entry
         else:
-            for entry in os.listdir(path):
-                full_path = os.path.join(path, entry)
-                if os.path.isfile(full_path):
-                    if regex is not None:
-                        if re.match(regex, full_path):
-                            yield (entry, "file://" + full_path, entry)
-                    else:
-                        yield (entry, "file://" + full_path, entry)
+            for entry_name in os.listdir(path):
+                full_path = os.path.join(path, entry_name)
+                stat_info = os.stat(full_path)
+                is_file = os.path.isfile(full_path)
+                
+                if regex is not None:
+                    if not re.match(regex, full_path):
+                        continue
+                
+                entry_props = EntryProperties(
+                    name=entry_name,
+                    full_uri="file://" + full_path,
+                    path=entry_name,
+                    is_file=is_file,
+                    size=stat_info.st_size if is_file else None,
+                    last_modified=datetime.fromtimestamp(stat_info.st_mtime),
+                )
+                yield entry_props
     
     @staticmethod
-    def list_files_shallow(uri: str, regex: Optional[str] = None) -> Generator[tuple[str, str, str]]:
+    def list_entries_shallow(uri: str, regex: Optional[str] = None) -> Generator[EntryProperties]:
         """List files in the current directory (shallow listing)."""
         return FileSchemeFileHandler._list_files_impl(uri, regex, recursive=False)
 
     @staticmethod
-    def list_files_recursive(uri: str, regex: Optional[str] = None) -> Generator[tuple[str, str, str]]:
+    def list_entries_recursive(uri: str, regex: Optional[str] = None) -> Generator[EntryProperties]:
         """List files recursively through all subdirectories."""
         return FileSchemeFileHandler._list_files_impl(uri, regex, recursive=True)
 
     @staticmethod
     def upload_file_directory(file: Path, uri: str, filename: Optional[str]) -> None:
         destination = FileSchemeFileHandler._get_local_path(uri, filename)
-        os.makedirs(destination, exist_ok=True)
+        os.makedirs(destination.parent, exist_ok=True)
         shutil.copy(file, destination)
 
     @staticmethod
@@ -113,7 +156,8 @@ class FileSchemeFileHandler(AbstractSchemeHandler):
 
     @staticmethod
     def upload_stream_directory(stream: BinaryIO, uri: str, filename: str) -> None:
-        dest_path = FileSchemeFileHandler._get_local_path(uri)
+        dest_path = FileSchemeFileHandler._get_local_path(uri, filename)
+        os.makedirs(dest_path.parent, exist_ok=True)
         with open(dest_path, "wb") as out_f:
             shutil.copyfileobj(stream, out_f)
 

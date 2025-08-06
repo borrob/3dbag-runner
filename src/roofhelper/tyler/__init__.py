@@ -9,6 +9,7 @@ import logging
 from typing import Any, Optional
 
 from roofhelper.io import SchemeFileHandler
+from roofhelper.io.EntryProperties import EntryProperties
 
 log = logging.getLogger()
 
@@ -221,14 +222,14 @@ def prepare_files(input_folder: str, output_folder: Path) -> Optional[str]: #Thi
 
     with ThreadPoolExecutor(max_workers=32) as executor:
         tasks = []
-        for filename, uri, _ in handler.list_files_shallow(input_folder, regex="(i?)^.*\\.city\\.json$"):
+        for entry in handler.list_entries_shallow(input_folder, regex="(i?)^.*\\.city\\.json$"):
             if schema == None:
-                cityjson_content = json.loads(handler.get_bytes(uri).decode())
+                cityjson_content = json.loads(handler.get_bytes(entry.full_uri).decode())
                 schema = extract_schema(cityjson_content)
 
-            filename_without_extension = filename.replace(".city.json", "")
+            filename_without_extension = entry.name.replace(".city.json", "")
             destination = Path(os.path.join(output_folder, filename_without_extension))
-            tasks.append(executor.submit(partial(_consumer, uri=uri, destination=destination)))
+            tasks.append(executor.submit(partial(_consumer, uri=entry.full_uri, destination=destination)))
 
         if len(tasks) == 0: 
             log.error("Could not find any city.json files, aborting")

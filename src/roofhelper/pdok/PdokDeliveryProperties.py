@@ -11,6 +11,7 @@ import fiona
 from shapely.geometry import Polygon, mapping
 
 from ..io import SchemeFileHandler
+from ..io.EntryProperties import EntryProperties
 from ..defautlogging import setup_logging
 
 log = setup_logging()
@@ -81,16 +82,16 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path,
         ahn_geometries = {key.lower(): value for key, value in ahn_data.items()}
     
     # Expected folder structure: /<year>/geluid/<type>/
-    folder_types = ['gebouwen', 'tin', 'bodemblakken']
+    folder_types = ['gebouwen', 'tin', 'bodemvlakken']
     
     # Collect features grouped by folder type
     features_by_type: dict[str, list[dict[str, Any]]] = {folder_type: [] for folder_type in folder_types}
 
     # List all files in source directory recursively
-    for _, file_path, _ in file_handler.list_files_recursive(source_uri, regex=r'.*\.zip$'):
+    for entry in file_handler.list_entries_recursive(source_uri, regex=r'.*\.zip$'):
         # Parse the file path to extract year and check if it matches expected structure
         # Expected: /<year>/geluid/<type>/<filename>.zip
-        path_parts = file_path.strip('/').split('/')
+        path_parts = entry.path.strip('/').split('/')
         
         if len(path_parts) < 4:
             continue
@@ -125,12 +126,9 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path,
             start_date = datetime(year, 1, 1)
             end_date = datetime(year, 12, 31)
             
-            # Get file size using the SchemeFileHandler
-            file_size = file_handler.get_file_size(file_path)
-            
             # Construct download link
             # Remove leading slash if present to avoid double slashes
-            relative_path = file_path.lstrip('/')
+            relative_path = entry.path.lstrip('/')
             download_link = f"{download_url_prefix}{relative_path}"
             
             # Create feature for geopackage
@@ -139,7 +137,7 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path,
                 'properties': {
                     'bladnr': ahn_key,
                     'bag_peildatum': year,
-                    'download_size_bytes': file_size,
+                    'download_size_bytes': entry.size,
                     'download_link': download_link,
                     'startdatum': start_date,
                     'einddatum': end_date,

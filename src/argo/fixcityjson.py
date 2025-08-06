@@ -7,7 +7,7 @@ def workerfunc(input: str, output: str) -> None:
     import logging
     from pathlib import Path
     
-    from io import StringIO
+    from io import BytesIO
     from typing import Any, Optional
     from roofhelper.io import SchemeFileHandler
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -77,16 +77,17 @@ def workerfunc(input: str, output: str) -> None:
         # Sanitize elevations
         sanitize_cityjson(data, name)
 
-        stream = StringIO()
-        json.dump(data, stream)
+        stream = BytesIO()
+        json_str = json.dumps(data)
+        stream.write(json_str.encode('utf-8'))
         stream.seek(0)
 
         handler.upload_bytes_directory(stream, output, name)
         log.info(f"Uploaded {name}")
 
-    files =  handler.list_files_shallow(input, regex="(?i)^.*city\\.json$")
+    files =  handler.list_entries_shallow(input, regex="(?i)^.*city\\.json$")
     with ThreadPoolExecutor(max_workers=32) as pool:
-        futures = [pool.submit(_worker, name, uri) for name, uri, _ in files]
+        futures = [pool.submit(_worker, entry.name, entry.full_uri) for entry in files]
 
         for future in as_completed(futures):
             future.result()

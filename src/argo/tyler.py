@@ -1,7 +1,6 @@
 from hera.workflows import Artifact, DAG, WorkflowTemplate, Script, Parameter
 from .argodefaults import argo_worker, MEMORY_EMPTY_DIR
 
-
 # Create a list to store the futures
 @argo_worker(outputs=Artifact(name="queue", path="/workflow/queue.json"), volumes=MEMORY_EMPTY_DIR) 
 def queuefunc(workercount: int, source: str) -> None:
@@ -32,9 +31,9 @@ def queuefunc(workercount: int, source: str) -> None:
         return x // region_size_m, y // region_size_m
     
     buckets: dict[tuple[int, int], list[str]] = defaultdict(list)
-    for name, uri, _ in file_handler.list_files_shallow(uri=source, regex="(i?)^.*\\.city\\.json$"):
-        x, y = _parse_tile_coords(name)
-        buckets[region_key(x, y)].append(uri)
+    for entry in file_handler.list_entries_shallow(uri=source, regex="(i?)^.*\\.city\\.json$"):
+        x, y = _parse_tile_coords(entry.name)
+        buckets[region_key(x, y)].append(entry.full_uri)
 
     regions_sorted = sorted(buckets.keys(), key=lambda k: (k[1], k[0]))
 
@@ -129,11 +128,11 @@ def mergerfunc(intermediate: str, destination: str) -> None:
 
     handler = SchemeFileHandler(Path("/workflow/downloads"))
     
-    zipfile_list = handler.list_files_shallow(uri=intermediate, regex="(i?)^.*\\.zip$")
-    for zipfile_index, (zipfile_name, zipfile_uri, _) in enumerate(zipfile_list):
-        log.info(f"Downloading and unzipping {zipfile_name}")
+    zipfile_list = handler.list_entries_shallow(uri=intermediate, regex="(i?)^.*\\.zip$")
+    for zipfile_index, entry in enumerate(zipfile_list):
+        log.info(f"Downloading and unzipping {entry.name}")
 
-        zip_path = handler.download_file(zipfile_uri)
+        zip_path = handler.download_file(entry.full_uri)
         zip.unzip(zip_path, Path(f"/workflow/inputs/{zipfile_index}"))
 
         handler.delete_if_not_local(zip_path)

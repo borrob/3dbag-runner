@@ -15,6 +15,8 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Optional
 
+from roofhelper.io.EntryProperties import EntryProperties
+
 import fiona
 import geopandas
 import laspy
@@ -42,19 +44,19 @@ def createlazdb_operation(args: argparse.Namespace) -> None:
 def createlazdb(uri: str, target: Path, pattern: str = "(?i)^.*(las|laz)$", epsg: int = 28992, processing_chunk_size: int = 100) -> None:
     handler = SchemeFileHandler(Path(""))
 
-    def _worker(blob: tuple[str, str, str]) -> dict[str, Any]:
+    def _worker(entry: EntryProperties) -> dict[str, Any]:
         """ Used in createlazdb with multiprocessing to processes multiple laz files in parallel """
-        header_raw = handler.get_bytes_range(blob[1], 0, 4096)
+        header_raw = handler.get_bytes_range(entry.full_uri, 0, 4096)
         with laspy.open(BytesIO(header_raw)) as laz_file:
             laz_header = laz_file.header
             extent_polygon = laz.extent_to_polygon(laz_header)
             return {
                 'geometry': extent_polygon,
-                'path': blob[1],
+                'path': entry.full_uri,
                 'date': laz_header.creation_date
             }
     
-    file_iterator = handler.list_files_shallow(uri, regex=pattern)
+    file_iterator = handler.list_entries_shallow(uri, regex=pattern)
     counter: int = 0
     for blob_chunk in processing.chunked(file_iterator, processing_chunk_size):
         counter += len(blob_chunk)
@@ -285,7 +287,7 @@ def pointcloudsplit(input_connection: str, output_connection: str, grid_size: in
     os.makedirs(temporary_directory, exist_ok=True)
     handler = SchemeFileHandler(temporary_directory)
 
-    file_list = handler.list_files_shallow(input_connection, regex=r"(?i)^.*\.LAZ$")
+    file_list = handler.list_entries_shallow(input_connection, regex=r"(?i)^.*\.LAZ$")
     
     
     def _upload_and_cleanup(file_path: Path, filename: str) -> None:
@@ -296,24 +298,24 @@ def pointcloudsplit(input_connection: str, output_connection: str, grid_size: in
         except Exception as e:
             log.error(f"Failed to process {file_path}: {e}")
 
-    for file_name, file_uri, _ in file_list:
-        log.info(f"Processing {file_name}")
+    for entry in file_list:
+        log.info(f"Processing {entry.name}")
         os.makedirs(temporary_directory, exist_ok=True)
 
-        log.info(f"Downloading point cloud {file_name}")
-        downloaded_tile = handler.download_file(file_uri)
+        log.info(f"Downloading point cloud {entry.name}")
+        downloaded_tile = handler.download_file(entry.full_uri)
 
-        log.info(f"Splitting point cloud {file_name}")
+        log.info(f"Splitting point cloud {entry.name}")
         generated_tiles = laz.laz_tile_split(downloaded_tile, temporary_directory, grid_size)
         
-        log.info(f"Generated {len(generated_tiles)} for {file_name}, start uploading them")
+        log.info(f"Generated {len(generated_tiles)} for {entry.name}, start uploading them")
         with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(_upload_and_cleanup, Path(tile), file_name) for tile in generated_tiles]
+            futures = [executor.submit(_upload_and_cleanup, Path(tile), entry.name) for tile in generated_tiles]
 
             for future in as_completed(futures):
                 future.result()
 
-        log.info(f"Finished uploading {len(generated_tiles)} files for {file_name}")
+        log.info(f"Finished uploading {len(generated_tiles)} files for {entry.name}")
         handler.delete_if_not_local(downloaded_tile)
 
 def hoogte_operation(args: argparse.Namespace) -> None:
@@ -351,8 +353,8 @@ def height_database(source: str, destination: str, temporary_directory: Path, is
         log.info(f"Start retrieving city.json files")
         futures = []
         with ThreadPoolExecutor() as executor:
-            for _, uri, _ in scheme_handler.list_files_shallow(source, regex="(?i)^.*city\\.json$"):
-                futures.append(executor.submit(_reader, uri))
+            for entry in scheme_handler.list_entries_shallow(source, regex="(?i)^.*city\\.json$"):
+                futures.append(executor.submit(_reader, entry.full_uri))
 
             for future in as_completed(futures):
                 future.result() 

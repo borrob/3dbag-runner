@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import BinaryIO, Generator, Optional
 
 from roofhelper.io.FileHandle import FileHandle
+from roofhelper.io.EntryProperties import EntryProperties
 
 class AbstractSchemeHandler(ABC):
     @staticmethod
@@ -23,12 +24,12 @@ class AbstractSchemeHandler(ABC):
 
     @staticmethod
     @abstractmethod
-    def list_files_shallow(uri: str, regex: str = '') -> Generator[tuple[str, str, str]]:
+    def list_entries_shallow(uri: str, regex: str = '') -> Generator[EntryProperties]:
         pass
 
     @staticmethod
     @abstractmethod
-    def list_files_recursive(uri: str, regex: str = '') -> Generator[tuple[str, str, str]]:
+    def list_entries_recursive(uri: str, regex: str = '') -> Generator[EntryProperties]:
         pass
 
     @staticmethod

@@ -14,6 +14,7 @@ from azure.storage.blob import BlobClient, ContainerClient, BlobProperties
 
 from .AbstractSchemeFileHandler import AbstractSchemeHandler
 from .FileHandle import FileHandle
+from .EntryProperties import EntryProperties
 
 log = logging.getLogger()
 
@@ -79,7 +80,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
             blob_client.upload_blob(f, overwrite=True)
 
     @staticmethod
-    def _list_files_impl(uri: str, regex: str = '', recursive: bool = False) -> Generator[tuple[str, str, str]]:
+    def _list_files_impl(uri: str, regex: str = '', recursive: bool = False) -> Generator[EntryProperties]:
         """
         Internal implementation for listing files in Azure blob storage.
         
@@ -121,25 +122,52 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
             
         for blob in blob_iter:
             if not isinstance(blob, BlobProperties):
-                break
-            # Create the full URL with the SAS token
+                # This is a BlobPrefix (directory) when using walk_blobs with delimiter
+                # Create EntryProperties for the directory prefix
+                blob_prefix = blob  # This is actually a BlobPrefix object
+                prefix_name = blob_prefix.name.rstrip('/')
+                
+                # If regex is provided, filter directories based on it
+                if pattern and not pattern.match(prefix_name):
+                    continue
+                
+                directory_entry = EntryProperties(
+                    name=os.path.basename(prefix_name),
+                    full_uri=f"azure://https://{parsed_uri.netloc}/{container_name}/{prefix_name}/?{sas_token}",
+                    path=prefix_name,
+                    is_file=False,  # This is a directory
+                    size=None,  # Directories don't have size
+                    last_modified=None,  # Prefixes don't have modification time
+                )
+                yield directory_entry
+                continue
             
+            # Create the full URL with the SAS token
             blob_url = f"https://{parsed_uri.netloc}/{container_name}/{blob.name}?{sas_token}"
             
             # If regex is provided, filter files based on it
             if pattern and not pattern.match(blob.name):
                 continue
             
-            # Prefix with 'azure://' and yield the result
-            yield os.path.basename(blob.name), f"azure://{blob_url}", blob.name
+            # Create EntryProperties with all available information from Azure Blob Storage
+            entry = EntryProperties(
+                name=os.path.basename(blob.name),
+                full_uri=f"azure://{blob_url}",
+                path=blob.name,
+                is_file=True,  # Azure blob storage only has files, no directories
+                size=blob.size,
+                last_modified=blob.last_modified,
+            )
+            
+            yield entry
 
     @staticmethod
-    def list_files_shallow(uri: str, regex: str = '') -> Generator[tuple[str, str, str]]:
+    def list_entries_shallow(uri: str, regex: str = '') -> Generator[EntryProperties]:
         """List files in the current directory (shallow listing)."""
         return AzureSchemeFileHandler._list_files_impl(uri, regex, recursive=False)
 
     @staticmethod
-    def list_files_recursive(uri: str, regex: str = '') -> Generator[tuple[str, str, str]]:
+    def list_entries_recursive(uri: str, regex: str = '') -> Generator[EntryProperties]:
         """List files recursively through all subdirectories."""
         return AzureSchemeFileHandler._list_files_impl(uri, regex, recursive=True)
         
