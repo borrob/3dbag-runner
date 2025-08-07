@@ -133,7 +133,7 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path,
                     
                     # Create start and end dates for the year
                     start_date = datetime(year, 1, 1)
-                    end_date = datetime(year, 12, 31)
+                    end_date = datetime(year, 12, 31, 23, 59, 59)
                     
                     # Construct download link
                     # Remove leading slash if present to avoid double slashes
