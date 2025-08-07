@@ -104,14 +104,14 @@ class SchemeFileHandler:
                     os.unlink(handle.path)
                     self.file_handles.remove(handle)
     
-    def navigate(self, uri: str, file:str) -> str:
+    def navigate(self, uri: str, path: str) -> str:
         """ 
         Navigating between specific destinations differs per URI, this function helps with uri navigation.
-        Say you're in /home you can set file to "test.txt" and this function will return /home/test.txt
+        Say you're in /home you can set path to "test.txt" and this function will return /home/test.txt
         Just a small reminder that this function does not support parent directory or other special operations.
         """
         parsed_uri = urlparse(uri)
-        return self.scheme_handlers[parsed_uri.scheme].navigate(uri, file)
+        return self.scheme_handlers[parsed_uri.scheme].navigate(uri, path)
 
     def file_exists(self, uri: str) -> bool:
         """

@@ -136,8 +136,8 @@ class FileSchemeFileHandler(AbstractSchemeHandler):
             return f.read(length)
 
     @staticmethod
-    def navigate(uri: str, location: str) -> str:
-        return "file://" + str(FileSchemeFileHandler._get_local_path(uri, location))
+    def navigate(uri: str, path: str) -> str:
+        return "file://" + str(FileSchemeFileHandler._get_local_path(uri, path))
     
     @staticmethod
     def file_exists(uri: str) -> bool:

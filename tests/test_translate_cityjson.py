@@ -139,7 +139,7 @@ class TestTranslateCityJSON:
         
         # Transform translate should be set to base values
         assert result["transform"]["translate"] == (171800.0, 472700.0, 0.0)
-        # Scale should remain unchanged (function doesn't modify scale)
+        # Scale should change
         assert result["transform"]["scale"] == (0.001, 0.001, 0.001)
         
         # Calculate expected translations with corrected formula and different scale

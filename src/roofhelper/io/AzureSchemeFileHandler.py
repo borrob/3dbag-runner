@@ -232,9 +232,9 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         return stream.readall()
     
     @staticmethod
-    def navigate(uri: str, location: str) -> str:
+    def navigate(uri: str, path: str) -> str:
         scheme, netloc, account_name, container_name, _, sas_token = AzureSchemeFileHandler._parse_azure_uri(uri)
-        blob_url = AzureSchemeFileHandler._make_blob_url(scheme, netloc, account_name, container_name, location, sas_token)
+        blob_url = AzureSchemeFileHandler._make_blob_url(scheme, netloc, account_name, container_name, path, sas_token)
         return f"azure://{blob_url}"
     
     @staticmethod

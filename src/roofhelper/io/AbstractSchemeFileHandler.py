@@ -34,7 +34,7 @@ class AbstractSchemeHandler(ABC):
 
     @staticmethod
     @abstractmethod
-    def navigate(uri: str, location: str) -> str:
+    def navigate(uri: str, path: str) -> str:
         pass
 
     @staticmethod

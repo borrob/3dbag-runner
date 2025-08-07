@@ -92,14 +92,12 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path,
         if not year_entry.name.isdigit() or int(year_entry.name) < 2020:
             continue
 
-        
-
         if list(file_handler.list_entries_shallow(year_entry.full_uri, regex="geluid")) == 0:
             log.warning(f"No 'geluid' folder found in {year_entry.full_uri}, skipping year {year_entry.name}")
             continue
 
         # Check for geluid folder in year directory
-        geluid_uri = f"{year_entry.full_uri}/geluid"
+        geluid_uri = file_handler.navigate(year_entry.full_uri, "geluid")
         if list(file_handler.list_entries_shallow(geluid_uri)) == 0:
             continue
 
