@@ -73,6 +73,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         else:
             # Real Azure Storage format
             return f"{scheme}://{netloc}/{container_name}/{blob_path}?{sas_token}"
+
     @staticmethod
     def download_file(uri: str, temporary_directory: Optional[Path], file: Optional[str] = None) -> FileHandle:
         sas_url = uri[8:]
@@ -99,7 +100,6 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
             destination = AzureSchemeFileHandler.navigate(uri, file.name)
 
         AzureSchemeFileHandler.upload_file_direct(file, destination)
-
 
     @staticmethod
     def _get_read_buffer(stream: BinaryIO) -> BytesIO:
@@ -233,8 +233,18 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
     
     @staticmethod
     def navigate(uri: str, path: str) -> str:
-        scheme, netloc, account_name, container_name, _, sas_token = AzureSchemeFileHandler._parse_azure_uri(uri)
-        blob_url = AzureSchemeFileHandler._make_blob_url(scheme, netloc, account_name, container_name, path, sas_token)
+        # Parse the original URI to get the current path prefix
+        scheme, netloc, account_name, container_name, current_path, sas_token = AzureSchemeFileHandler._parse_azure_uri(uri)
+        
+        # Combine current path with the new relative path
+        if current_path and not current_path.endswith('/'):
+            combined_path = f"{current_path}/{path}"
+        elif current_path:
+            combined_path = f"{current_path}{path}"
+        else:
+            combined_path = path
+            
+        blob_url = AzureSchemeFileHandler._make_blob_url(scheme, netloc, account_name, container_name, combined_path, sas_token)
         return f"azure://{blob_url}"
     
     @staticmethod

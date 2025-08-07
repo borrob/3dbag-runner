@@ -137,7 +137,20 @@ class FileSchemeFileHandler(AbstractSchemeHandler):
 
     @staticmethod
     def navigate(uri: str, path: str) -> str:
-        return "file://" + str(FileSchemeFileHandler._get_local_path(uri, path))
+        # Get the current base path from the URI
+        current_path = FileSchemeFileHandler._get_local_path(uri)
+        
+        # Handle empty path case - return base path without trailing slash
+        if not path:
+            return "file://" + str(current_path)
+        
+        # Strip leading slash to ensure relative path behavior
+        if path.startswith('/'):
+            path = path.lstrip('/')
+        
+        # Join with the relative path
+        new_path = os.path.join(current_path, path)
+        return "file://" + str(new_path)
     
     @staticmethod
     def file_exists(uri: str) -> bool:

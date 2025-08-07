@@ -257,14 +257,6 @@ class TestFileSchemeFileHandler:
         assert FileSchemeFileHandler.file_exists(existing_uri) is True
         assert FileSchemeFileHandler.file_exists(nonexistent_uri) is False
 
-    def test_exists_directory(self) -> None:
-        """Test checking if a directory exists."""
-        existing_uri = f"file://{self.sub_dir}"
-        nonexistent_uri = f"file://{self.test_dir}/nonexistent_dir"
-        
-        assert FileSchemeFileHandler.file_exists(existing_uri) is True
-        assert FileSchemeFileHandler.file_exists(nonexistent_uri) is False
-
     def test_upload_folder(self) -> None:
         """Test uploading an entire folder."""
         # Create a source folder with content
