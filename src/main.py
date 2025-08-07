@@ -470,7 +470,8 @@ def trigger_pdok_update_operation(args: argparse.Namespace) -> None:
                         args.destination_s3_key,
                         args.s3_prefix,
                         args.trigger_update_url,
-                        args.trigger_private_key_content)
+                        args.trigger_private_key_content,
+                        args.expected_gpkg_name)
 
 def trigger_pdok_update(source: str,
                         destination_s3_url: str, 
@@ -478,7 +479,8 @@ def trigger_pdok_update(source: str,
                         destination_s3_key: str,
                         s3_prefix: str,
                         trigger_update_url: str,
-                        trigger_private_key_content: str) -> None:
+                        trigger_private_key_content: str,
+                        expected_gpkg_name: str) -> None:
                         
     """Main function to trigger PDOK update process."""
     log.info("Starting update of pdok geopackage")
@@ -492,7 +494,7 @@ def trigger_pdok_update(source: str,
         
         # Create S3 uploader and upload file
         uploader = PdokS3Uploader(destination_s3_url, destination_s3_user, destination_s3_key)
-        upload_result: UploadResult = uploader.upload_file(str(local_geopackage_path), s3_prefix)
+        upload_result: UploadResult = uploader.upload_file(str(local_geopackage_path), s3_prefix, expected_gpkg_name)
         
         if not upload_result.success:
             log.error(f"Upload failed: {upload_result.error_message}")
@@ -711,7 +713,8 @@ def main() -> None:
     trigger_pdok_update.add_argument("--destination_s3_key", type=str, required=True, help="S3 key for authentication")
     trigger_pdok_update.add_argument("--s3_prefix", type=str, required=True, help="S3 prefix path for the uploaded file, e.g. kadaster/3d-basisvoorziening-features")
     trigger_pdok_update.add_argument("--trigger_update_url", type=str, required=True, help="URL to trigger the PDOK update")
-    trigger_pdok_update.add_argument("--trigger_private_key_content", type=str, required=True, help="Private key content for triggering the update")
+    trigger_pdok_update.add_argument("--trigger_private_key_content", type=str, required=True, help="Private key content for triggering the update, encoded in base64")
+    trigger_pdok_update.add_argument("--expected_gpkg_name", type=str, required=True, help="PDOK always expects a certain name for the gpkg stored in the s3 bucket, for instance 3dgeluid.gpkg")
     trigger_pdok_update.set_defaults(func=trigger_pdok_update_operation)
     
 
