@@ -137,7 +137,7 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path,
                     
                     # Construct download link
                     # Remove leading slash if present to avoid double slashes
-                    relative_path = file_entry.path.lstrip('/')
+                    relative_path = file_entry.path.lstrip('/').replace("geluid/", "") # Remove "geluid/" prefix, pdok already adds it during the url rewrite
                     download_link = f"{download_url_prefix}{relative_path}"
                     
                     # Create feature for geopackage
