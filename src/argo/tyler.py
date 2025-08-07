@@ -1,5 +1,5 @@
 from hera.workflows import Artifact, DAG, WorkflowTemplate, Script, Parameter
-from .argodefaults import argo_worker, MEMORY_EMPTY_DIR
+from argo.argodefaults import argo_worker, MEMORY_EMPTY_DIR
 
 # Create a list to store the futures
 @argo_worker(outputs=Artifact(name="queue", path="/workflow/queue.json"), volumes=MEMORY_EMPTY_DIR) 

@@ -1,6 +1,5 @@
 from hera.workflows import DAG, WorkflowTemplate, Script, Parameter
-
-from .argodefaults import argo_worker
+from argo.argodefaults import argo_worker
 
 # Create a list to store the futures
 @argo_worker()

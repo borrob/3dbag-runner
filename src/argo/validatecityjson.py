@@ -1,5 +1,5 @@
 from hera.workflows import DAG, WorkflowTemplate, Parameter, Script
-from .argodefaults import default_worker
+from argo.argodefaults import default_worker
 
 @default_worker() 
 def workerfunc(input: str) -> None:

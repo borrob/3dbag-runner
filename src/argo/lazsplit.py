@@ -1,5 +1,5 @@
 from hera.workflows import DAG, WorkflowTemplate, Parameter, Artifact, Script
-from .argodefaults import SIZE_D2, argo_worker, default_worker, MEMORY_EMPTY_DIR
+from argo.argodefaults import SIZE_D2, argo_worker, default_worker, MEMORY_EMPTY_DIR
 
 @default_worker(outputs=Artifact(name="queue", path="/workflow/queue.json")) 
 def workerfunc(source: str, destination: str, gridsize: int) -> None:

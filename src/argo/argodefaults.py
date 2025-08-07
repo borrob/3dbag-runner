@@ -1,5 +1,6 @@
 from typing import Callable, Literal, ParamSpec, Sequence, TypeVar, Unpack, cast
 from typing_extensions import TypedDict
+from pathlib import Path
 
 
 from hera.workflows import script, EmptyDirVolume, Artifact
@@ -35,7 +36,14 @@ DEFAULT_AFFINITY = Affinity(
     )
 )
 
-DEFAULT_IMAGE = "acrexample.azurecr.io/container:master"
+# Load default image from .default_image file if it exists, otherwise use fallback
+def _get_default_image() -> str:
+    default_image_file = Path(__file__).parent.parent.parent / ".default_image"
+    if default_image_file.exists():
+        return default_image_file.read_text().strip()
+    return "acrexample.azurecr.io/container:master"
+
+DEFAULT_IMAGE = _get_default_image()
 DEFAULT_VOLUMES = [EmptyDirVolume(name="workflow", mount_path="/workflow")]
 MEMORY_EMPTY_DIR = [EmptyDirVolume(name="workflow", mount_path="/workflow", medium="Memory")]
 DEFAULT_COMMAND = ["/app/.venv/bin/python"]
