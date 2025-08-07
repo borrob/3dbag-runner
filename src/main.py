@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import threading
+import re
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
@@ -279,44 +280,75 @@ def runallconfigtiles(footprints: str,
             future.result()  # This will block until the future is done
     
 def pointcloudsplit_operation(args: argparse.Namespace) -> None:
-    pointcloudsplit(args.input_connection, args.output_connection, args.grid_size, args.temporary_directory)
+    pointcloudsplit(args.input_connection, args.output_connection, args.grid_size, args.temporary_directory, args.max_workers)
 
-def pointcloudsplit(input_connection: str, output_connection: str, grid_size: int, temporary_directory: Path) -> None:
+def pointcloudsplit(input_connection: str, output_connection: str, grid_size: int, temporary_directory: Path, max_workers: int = 0) -> None:
     """ Split laz files into smaller, manageable chunks """
     log.info(f"Splitting laz files, source: {input_connection} destination: {output_connection}")
     os.makedirs(temporary_directory, exist_ok=True)
     handler = SchemeFileHandler(temporary_directory)
 
-    file_list = (entry for entry in handler.list_entries_shallow(input_connection, regex=r"(?i)^.*\.LAZ$") if entry.is_file)
-    
+    if max_workers <= 0:
+        max_workers = multiprocessing.cpu_count()
+
+    file_list = list(entry for entry in handler.list_entries_shallow(input_connection, regex=r"(?i)^.*\.LAZ$") if entry.is_file)
     
     def _upload_and_cleanup(file_path: Path, filename: str) -> None:
         try:
-            handler.upload_file_directory(file_path, output_connection, filename)
+            # Extract x and y coordinates from the file path using regex (format: tempname_x_y.laz)
+            file_stem = file_path.stem  # removes .laz extension
+            # Use regex to match pattern: anything_digits_digits
+            match = re.search(r'.*_(\d+)_(\d+)$', file_stem)
+            if match:
+                x_coord = match.group(1)
+                y_coord = match.group(2)
+                
+                # Create new filename: something_x_y.laz (remove .laz from original filename if present)
+                base_filename = filename.replace('.laz', '').replace('.LAZ', '')
+                new_filename = f"{base_filename}_{x_coord}_{y_coord}.laz"
+            else:
+                raise ValueError(f"Filename {filename} does not match expected pattern for x and y coordinates.")
+            
+            handler.upload_file_directory(file_path, output_connection, new_filename)
             os.remove(file_path)
-            log.info(f"Uploaded and removed: {file_path}")
+            log.info(f"Uploaded and removed: {file_path} as {new_filename}")
         except Exception as e:
             log.error(f"Failed to process {file_path}: {e}")
 
-    for entry in file_list:
-        log.info(f"Processing {entry.name}")
-        os.makedirs(temporary_directory, exist_ok=True)
+    def _process_laz_file(entry: Any) -> None:
+        """Process a single LAZ file: download, split, and upload tiles"""
+        try:
+            log.info(f"Processing {entry.name}")
 
-        log.info(f"Downloading point cloud {entry.name}")
-        downloaded_tile = handler.download_file(entry.full_uri)
+            log.info(f"Downloading point cloud {entry.name}")
+            downloaded_tile = handler.download_file(entry.full_uri)
 
-        log.info(f"Splitting point cloud {entry.name}")
-        generated_tiles = laz.laz_tile_split(downloaded_tile, temporary_directory, grid_size)
+            log.info(f"Splitting point cloud {entry.name}")
+            generated_tiles = laz.laz_tile_split(downloaded_tile, temporary_directory, grid_size)
+            
+            log.info(f"Generated {len(generated_tiles)} for {entry.name}, start uploading them")
+            with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(_upload_and_cleanup, Path(tile), entry.name) for tile in generated_tiles]
+
+                for future in as_completed(futures):
+                    future.result()
+
+            log.info(f"Finished uploading {len(generated_tiles)} files for {entry.name}")
+            handler.delete_if_not_local(downloaded_tile)
+            
+        except Exception as e:
+            log.error(f"Failed to process file {entry.name}: {e}")
+
+    # Process files concurrently
+    log.info(f"Processing {len(file_list)} LAZ files with {max_workers} workers")
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_process_laz_file, entry) for entry in file_list]
         
-        log.info(f"Generated {len(generated_tiles)} for {entry.name}, start uploading them")
-        with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(_upload_and_cleanup, Path(tile), entry.name) for tile in generated_tiles]
+        # Use tqdm to show progress
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing LAZ files"):
+            future.result()
 
-            for future in as_completed(futures):
-                future.result()
-
-        log.info(f"Finished uploading {len(generated_tiles)} files for {entry.name}")
-        handler.delete_if_not_local(downloaded_tile)
+    log.info("Finished processing all LAZ files")
 
 def hoogte_operation(args: argparse.Namespace) -> None:
     height_database(args.source, args.destination, args.temporary_directory, False)
@@ -603,6 +635,7 @@ def main() -> None:
     splitlaz.add_argument("--output_connection", type=str, required=True, help="SAS URI destination of generated tiles", default=0)
     splitlaz.add_argument("--temporary_directory", type=Path, required=True, help="Temporary directory for the devided laz tiles")
     splitlaz.add_argument("--grid_size", type=int, required=True, help="Size of the grid for said laz tiles")
+    splitlaz.add_argument("--max_workers", type=int, required=False, default=0, help="Maximum number of concurrent file processing workers (0 = use CPU count)")
     splitlaz.set_defaults(func=pointcloudsplit_operation)
 
     createbagdb = subparsers.add_parser("createbagdb", help="Creates a geopackage containing building footprints")
