@@ -28,7 +28,7 @@ def queuefunc(workercount: int, footprints: str, cityjsonfolder: str, year: int)
         cityjson_file = file_handler.navigate(cityjsonfolder, f"{name}.city.json")
         logger.info(f"Preparing to queue {name}")
 
-        if not file_handler.exists(cityjson_file):
+        if not file_handler.file_exists(cityjson_file):
             logger.info(f"Queued {name}")
             queue.append({"worker": worker % workercount, # We can also do this implicitly by list index, but lets make it explicit to we can choose based
                           "extent": extent, # on footprint count so we can control who does what in the future.
@@ -69,7 +69,7 @@ def workerfunc(workerid: int, footprints: str, year: int, dsm: str, ahn4: str, a
     def process_task(index: int, work: dict[str, str]) -> None:
         destination = work['destination']
         logger.info(f"Processing [{index}/{len(local_queue)}] {destination}.")
-        if file_handler.exists(destination):
+        if file_handler.file_exists(destination):
             logger.info(f"Skipping {destination}")
 
         x = work["extent"]
