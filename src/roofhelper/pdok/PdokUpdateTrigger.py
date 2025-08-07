@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import jwt
 import requests
+import base64
 
 from roofhelper.defautlogging import setup_logging
 from roofhelper.pdok.UploadResult import UploadResult
@@ -12,7 +13,7 @@ class PdokUpdateTrigger:
     
     def __init__(self, url: str, private_key_content: str):
         self.url = url
-        self.private_key_content = private_key_content
+        self.private_key_content = base64.b64decode(private_key_content)
     
     def trigger_update(self, upload_result: UploadResult) -> bool:
         """Trigger PDOK update using upload result data."""

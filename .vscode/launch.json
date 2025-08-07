@@ -279,7 +279,8 @@
                 "--destination_s3_key", "<s3_key>",
                 "--s3_prefix", "kadaster/3d-basisvoorziening-features",
                 "--trigger_update_url", "https://trigger.example.com",
-                "--trigger_private_key_content", "<private_key_content>"
+                "--trigger_private_key_content", "<private_key_content>",
+                "--expected_gpkg_name", "3dgeluid.gpkg"
             ],
             "console": "integratedTerminal"
         },
