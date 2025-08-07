@@ -257,11 +257,11 @@ class TestNavigateBehaviorConsistency:
             assert azure_result.startswith("azure://")
 
     def test_navigate_with_leading_slash(self) -> None:
-        """Test navigate with leading slash (becomes absolute path)."""
+        """Test navigate with leading slash (should not become an absolute path)."""
         # File scheme
         result = FileSchemeFileHandler.navigate(self.file_base_uri, "/subdir/test.txt")
-        # Leading slash makes it an absolute path, not relative to base
-        assert result == "file:///subdir/test.txt"
+        # os.path.join makes leading slashes absolute, prevent this behavior
+        assert result == f"file://{self.test_dir}/subdir/test.txt"
         
         if is_azurite_running():
             # Azure scheme
