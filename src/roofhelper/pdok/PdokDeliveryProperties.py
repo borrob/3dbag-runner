@@ -164,6 +164,8 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path,
         temp_file = file_handler.create_file(suffix=".gpkg")
         
         try:
+            os.unlink(temp_file)  # Ensure the file is removed if it already exists, TODO: we need a cleaner way to create temporary filenames
+
             # Write each folder type to a separate layer
             for folder_type, features in features_by_type.items():
                 if features:  # Only create layer if there are features
