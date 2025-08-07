@@ -367,7 +367,7 @@ class TestAzureSchemeFileHandler:
         
         # Verify the file was uploaded
         uploaded_uri = self._get_blob_uri("uploaded.txt")
-        assert AzureSchemeFileHandler.exists(uploaded_uri)
+        assert AzureSchemeFileHandler.file_exists(uploaded_uri)
         content = AzureSchemeFileHandler.get_bytes(uploaded_uri)
         assert content == b"Upload test content"
 
@@ -384,7 +384,7 @@ class TestAzureSchemeFileHandler:
         AzureSchemeFileHandler.upload_file_direct(temp_file, dest_uri)
         
         # Verify the file was uploaded
-        assert AzureSchemeFileHandler.exists(dest_uri)
+        assert AzureSchemeFileHandler.file_exists(dest_uri)
         content = AzureSchemeFileHandler.get_bytes(dest_uri)
         assert content == b"Direct upload test content"
 
@@ -424,8 +424,8 @@ class TestAzureSchemeFileHandler:
         existing_uri = self._get_blob_uri("test1.txt")
         nonexistent_uri = self._get_blob_uri("nonexistent.txt")
         
-        assert AzureSchemeFileHandler.exists(existing_uri) is True
-        assert AzureSchemeFileHandler.exists(nonexistent_uri) is False
+        assert AzureSchemeFileHandler.file_exists(existing_uri) is True
+        assert AzureSchemeFileHandler.file_exists(nonexistent_uri) is False
 
     def test_upload_folder(self) -> None:
         """Test uploading an entire folder."""
@@ -445,9 +445,9 @@ class TestAzureSchemeFileHandler:
         AzureSchemeFileHandler.upload_folder(source_folder, dest_uri)
         
         # Verify the files were uploaded
-        assert AzureSchemeFileHandler.exists(self._get_blob_uri("destination/file1.txt"))
-        assert AzureSchemeFileHandler.exists(self._get_blob_uri("destination/file2.txt"))
-        assert AzureSchemeFileHandler.exists(self._get_blob_uri("destination/subfolder/subfile.txt"))
+        assert AzureSchemeFileHandler.file_exists(self._get_blob_uri("destination/file1.txt"))
+        assert AzureSchemeFileHandler.file_exists(self._get_blob_uri("destination/file2.txt"))
+        assert AzureSchemeFileHandler.file_exists(self._get_blob_uri("destination/subfolder/subfile.txt"))
         
         # Verify content
         content1 = AzureSchemeFileHandler.get_bytes(self._get_blob_uri("destination/file1.txt"))
@@ -464,7 +464,7 @@ class TestAzureSchemeFileHandler:
         
         AzureSchemeFileHandler.upload_stream_direct(stream, dest_uri)
         
-        assert AzureSchemeFileHandler.exists(dest_uri)
+        assert AzureSchemeFileHandler.file_exists(dest_uri)
         content = AzureSchemeFileHandler.get_bytes(dest_uri)
         assert content == stream_content
 
@@ -477,7 +477,7 @@ class TestAzureSchemeFileHandler:
         
         # File should be created with the specified filename
         uploaded_uri = self._get_blob_uri("uploaded_stream.txt")
-        assert AzureSchemeFileHandler.exists(uploaded_uri)
+        assert AzureSchemeFileHandler.file_exists(uploaded_uri)
         content = AzureSchemeFileHandler.get_bytes(uploaded_uri)
         assert content == stream_content
 
@@ -583,7 +583,7 @@ class TestAzureSchemeFileHandler:
         uri = self._get_blob_uri(special_filename)
         
         # Test that operations work with special characters
-        assert AzureSchemeFileHandler.exists(uri) is True
+        assert AzureSchemeFileHandler.file_exists(uri) is True
         content = AzureSchemeFileHandler.get_bytes(uri)
         assert content == b"Special content"
         
@@ -619,7 +619,7 @@ class TestAzureSchemeFileHandler:
                 AzureSchemeFileHandler.upload_file_direct(temp_file, dest_uri)
                 
                 # Verify upload
-                assert AzureSchemeFileHandler.exists(dest_uri)
+                assert AzureSchemeFileHandler.file_exists(dest_uri)
                 results.append(i)
             except Exception as e:
                 errors.append(e)

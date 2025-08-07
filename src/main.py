@@ -56,7 +56,7 @@ def createlazdb(uri: str, target: Path, pattern: str = "(?i)^.*(las|laz)$", epsg
                 'date': laz_header.creation_date
             }
     
-    file_iterator = handler.list_entries_shallow(uri, regex=pattern)
+    file_iterator = (entry for entry in handler.list_entries_shallow(uri, regex=pattern) if entry.is_file)
     counter: int = 0
     for blob_chunk in processing.chunked(file_iterator, processing_chunk_size):
         counter += len(blob_chunk)
@@ -259,7 +259,7 @@ def runallconfigtiles(footprints: str,
             data = {"x": int(extent[0]), "y": int(extent[1])}
             name_generated = filename.format(**data)
             output = file_handler.navigate(destination, f"{name_generated}.city.jsonl")
-            if not file_handler.exists(output):
+            if not file_handler.file_exists(output):
                 log.info(f"Submitted tile {name_generated}")
                 futures.append(executor.submit(partial(runsingleroofertile,
                                                extent,
@@ -287,7 +287,7 @@ def pointcloudsplit(input_connection: str, output_connection: str, grid_size: in
     os.makedirs(temporary_directory, exist_ok=True)
     handler = SchemeFileHandler(temporary_directory)
 
-    file_list = handler.list_entries_shallow(input_connection, regex=r"(?i)^.*\.LAZ$")
+    file_list = (entry for entry in handler.list_entries_shallow(input_connection, regex=r"(?i)^.*\.LAZ$") if entry.is_file)
     
     
     def _upload_and_cleanup(file_path: Path, filename: str) -> None:
@@ -354,6 +354,8 @@ def height_database(source: str, destination: str, temporary_directory: Path, is
         futures = []
         with ThreadPoolExecutor() as executor:
             for entry in scheme_handler.list_entries_shallow(source, regex="(?i)^.*city\\.json$"):
+                if not entry.is_file:
+                    continue
                 futures.append(executor.submit(_reader, entry.full_uri))
 
             for future in as_completed(futures):

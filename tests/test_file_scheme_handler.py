@@ -254,16 +254,16 @@ class TestFileSchemeFileHandler:
         existing_uri = f"file://{self.test_file1}"
         nonexistent_uri = f"file://{self.test_dir}/nonexistent.txt"
         
-        assert FileSchemeFileHandler.exists(existing_uri) is True
-        assert FileSchemeFileHandler.exists(nonexistent_uri) is False
+        assert FileSchemeFileHandler.file_exists(existing_uri) is True
+        assert FileSchemeFileHandler.file_exists(nonexistent_uri) is False
 
     def test_exists_directory(self) -> None:
         """Test checking if a directory exists."""
         existing_uri = f"file://{self.sub_dir}"
         nonexistent_uri = f"file://{self.test_dir}/nonexistent_dir"
         
-        assert FileSchemeFileHandler.exists(existing_uri) is True
-        assert FileSchemeFileHandler.exists(nonexistent_uri) is False
+        assert FileSchemeFileHandler.file_exists(existing_uri) is True
+        assert FileSchemeFileHandler.file_exists(nonexistent_uri) is False
 
     def test_upload_folder(self) -> None:
         """Test uploading an entire folder."""
@@ -420,7 +420,7 @@ class TestFileSchemeFileHandler:
         complex_uri = f"file://{self.test_dir}/subdir/../test1.txt"
         
         # The exists check should work correctly
-        assert FileSchemeFileHandler.exists(complex_uri) is True
+        assert FileSchemeFileHandler.file_exists(complex_uri) is True
         
         # Reading should work
         content = FileSchemeFileHandler.get_bytes(complex_uri)
@@ -435,7 +435,7 @@ class TestFileSchemeFileHandler:
         uri = f"file://{special_file}"
         
         # Test that operations work with special characters
-        assert FileSchemeFileHandler.exists(uri) is True
+        assert FileSchemeFileHandler.file_exists(uri) is True
         content = FileSchemeFileHandler.get_bytes(uri)
         assert content == b"Special content"
         

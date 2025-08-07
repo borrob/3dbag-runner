@@ -113,13 +113,13 @@ class SchemeFileHandler:
         parsed_uri = urlparse(uri)
         return self.scheme_handlers[parsed_uri.scheme].navigate(uri, file)
 
-    def exists(self, uri: str) -> bool:
+    def file_exists(self, uri: str) -> bool:
         """
-        Checks for the existence of a resource at the specified URI.
+        Checks for the existence of a file at the specified URI.
         The check is performed by the handler corresponding to the URI's scheme.
         """
         parsed_uri = urlparse(uri)
-        return self.scheme_handlers[parsed_uri.scheme].exists(uri)
+        return self.scheme_handlers[parsed_uri.scheme].file_exists(uri)
 
     def upload_folder(self, folder: Path, uri: str) -> None:
         parsed_uri = urlparse(uri)

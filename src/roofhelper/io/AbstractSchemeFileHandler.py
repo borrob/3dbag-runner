@@ -39,7 +39,7 @@ class AbstractSchemeHandler(ABC):
 
     @staticmethod
     @abstractmethod
-    def exists(uri: str) -> bool:
+    def file_exists(uri: str) -> bool:
         pass
 
     @staticmethod

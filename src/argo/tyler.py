@@ -32,6 +32,8 @@ def queuefunc(workercount: int, source: str) -> None:
     
     buckets: dict[tuple[int, int], list[str]] = defaultdict(list)
     for entry in file_handler.list_entries_shallow(uri=source, regex="(i?)^.*\\.city\\.json$"):
+        if not entry.is_file:
+            continue
         x, y = _parse_tile_coords(entry.name)
         buckets[region_key(x, y)].append(entry.full_uri)
 
@@ -128,7 +130,7 @@ def mergerfunc(intermediate: str, destination: str) -> None:
 
     handler = SchemeFileHandler(Path("/workflow/downloads"))
     
-    zipfile_list = handler.list_entries_shallow(uri=intermediate, regex="(i?)^.*\\.zip$")
+    zipfile_list = (entry for entry in handler.list_entries_shallow(uri=intermediate, regex="(i?)^.*\\.zip$") if entry.is_file)
     for zipfile_index, entry in enumerate(zipfile_list):
         log.info(f"Downloading and unzipping {entry.name}")
 

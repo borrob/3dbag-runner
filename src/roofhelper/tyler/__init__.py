@@ -223,6 +223,8 @@ def prepare_files(input_folder: str, output_folder: Path) -> Optional[str]: #Thi
     with ThreadPoolExecutor(max_workers=32) as executor:
         tasks = []
         for entry in handler.list_entries_shallow(input_folder, regex="(i?)^.*\\.city\\.json$"):
+            if not entry.is_file:
+                continue
             if schema == None:
                 cityjson_content = json.loads(handler.get_bytes(entry.full_uri).decode())
                 schema = extract_schema(cityjson_content)

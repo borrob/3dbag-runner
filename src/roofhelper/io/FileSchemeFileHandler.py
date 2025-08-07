@@ -28,7 +28,7 @@ class FileSchemeFileHandler(AbstractSchemeHandler):
         return FileHandle(FileSchemeFileHandler._get_local_path(uri, file), False)
     
     @staticmethod
-    def _list_files_impl(uri: str, regex: Optional[str] = None, recursive: bool = False) -> Generator[EntryProperties]:
+    def _list_files_impl(uri: str, regex: Optional[str] = None, recursive: bool = False) -> Generator[EntryProperties, None, None]:
         """
         Internal implementation for listing files in local filesystem.
         
@@ -140,8 +140,9 @@ class FileSchemeFileHandler(AbstractSchemeHandler):
         return "file://" + str(FileSchemeFileHandler._get_local_path(uri, location))
     
     @staticmethod
-    def exists(uri: str) -> bool:
-        return os.path.exists(FileSchemeFileHandler._get_local_path(uri))
+    def file_exists(uri: str) -> bool:
+        path = FileSchemeFileHandler._get_local_path(uri)
+        return os.path.isfile(path)
     
     @staticmethod
     def upload_folder(folder: Path, uri: str, recursive: bool = True, consumer_count: int = multiprocessing.cpu_count(), queue_size: int = 128) -> None:

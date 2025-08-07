@@ -87,63 +87,76 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path,
     # Collect features grouped by folder type
     features_by_type: dict[str, list[dict[str, Any]]] = {folder_type: [] for folder_type in folder_types}
 
-    # List all files in source directory recursively
-    for entry in file_handler.list_entries_recursive(source_uri, regex=r'.*\.zip$'):
-        # Parse the file path to extract year and check if it matches expected structure
-        # Expected: /<year>/geluid/<type>/<filename>.zip
-        path_parts = entry.path.strip('/').split('/')
+    
+    for year_entry in (x for x in file_handler.list_entries_shallow(source_uri) if x.is_directory):
+        if not year_entry.name.isdigit() or int(year_entry.name) < 2020:
+            continue
+
         
-        if len(path_parts) < 4:
+
+        if list(file_handler.list_entries_shallow(year_entry.full_uri, regex="geluid")) == 0:
+            log.warning(f"No 'geluid' folder found in {year_entry.full_uri}, skipping year {year_entry.name}")
             continue
-            
-        # Extract year from path
-        try:
-            year = int(path_parts[-4])  # Year should be 4 levels up from filename
-        except (ValueError, IndexError):
+
+        # Check for geluid folder in year directory
+        geluid_uri = f"{year_entry.full_uri}/geluid"
+        if list(file_handler.list_entries_shallow(geluid_uri)) == 0:
             continue
-            
-        # Check if path contains 'geluid' and one of the expected types
-        if len(path_parts) >= 3 and path_parts[-3] == 'geluid' and path_parts[-2] in folder_types:
-            filename = path_parts[-1]
-            folder_type = path_parts[-2]  # Extract the folder type
-            
-            # Extract AHN key from filename
-            ahn_key = extract_ahn_key_from_filename(filename)
-            if not ahn_key or ahn_key not in ahn_geometries:
+
+        layer_entries: list[EntryProperties] = []
+        # Check if all expected folder types exist before processing
+        for folder in file_handler.list_entries_shallow(geluid_uri):
+            if folder.name not in folder_types or not folder.is_directory:
                 continue
-                
-            # Get geometry from AHN data
-            bbox = ahn_geometries[ahn_key]  # [minx, miny, maxx, maxy]
-            geometry = Polygon([
-                (bbox[0], bbox[1]),  # bottom-left
-                (bbox[2], bbox[1]),  # bottom-right
-                (bbox[2], bbox[3]),  # top-right
-                (bbox[0], bbox[3]),  # top-left
-                (bbox[0], bbox[1])   # close polygon
-            ])
-            
-            # Create start and end dates for the year
-            start_date = datetime(year, 1, 1)
-            end_date = datetime(year, 12, 31)
-            
-            # Construct download link
-            # Remove leading slash if present to avoid double slashes
-            relative_path = entry.path.lstrip('/')
-            download_link = f"{download_url_prefix}{relative_path}"
-            
-            # Create feature for geopackage
-            feature = {
-                'geometry': mapping(geometry),
-                'properties': {
-                    'bladnr': ahn_key,
-                    'bag_peildatum': year,
-                    'download_size_bytes': entry.size,
-                    'download_link': download_link,
-                    'startdatum': start_date,
-                    'einddatum': end_date,
-                }
-            }
-            features_by_type[folder_type].append(feature)
+
+            layer_entries.append(folder)
+
+        # Only process folder types that actually exist
+        for layer in layer_entries:
+            try:
+                for file_entry in (x for x in file_handler.list_entries_shallow(layer.full_uri, regex=r'.*\.zip$') if x.is_file):
+                    year = int(year_entry.name)
+                    filename = file_entry.name
+                    
+                    # Extract AHN key from filename
+                    ahn_key = extract_ahn_key_from_filename(filename)
+                    if not ahn_key or ahn_key not in ahn_geometries:
+                        continue
+                        
+                    # Get geometry from AHN data
+                    bbox = ahn_geometries[ahn_key]  # [minx, miny, maxx, maxy]
+                    geometry = Polygon([
+                        (bbox[0], bbox[1]),  # bottom-left
+                        (bbox[2], bbox[1]),  # bottom-right
+                        (bbox[2], bbox[3]),  # top-right
+                        (bbox[0], bbox[3]),  # top-left
+                        (bbox[0], bbox[1])   # close polygon
+                    ])
+                    
+                    # Create start and end dates for the year
+                    start_date = datetime(year, 1, 1)
+                    end_date = datetime(year, 12, 31)
+                    
+                    # Construct download link
+                    # Remove leading slash if present to avoid double slashes
+                    relative_path = file_entry.path.lstrip('/')
+                    download_link = f"{download_url_prefix}{relative_path}"
+                    
+                    # Create feature for geopackage
+                    feature = {
+                        'geometry': mapping(geometry),
+                        'properties': {
+                            'bladnr': ahn_key,
+                            'bag_peildatum': year,
+                            'download_size_bytes': file_entry.size,
+                            'download_link': download_link,
+                            'startdatum': start_date,
+                            'einddatum': end_date,
+                        }
+                    }
+                    features_by_type[layer.name].append(feature)
+            except Exception:
+                continue  # Skip if folder doesn't exist or can't be accessed
     
     # Write features to geopackage, one layer per folder type
     total_features = sum(len(features) for features in features_by_type.values())

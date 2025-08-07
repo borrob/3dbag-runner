@@ -238,7 +238,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         return f"azure://{blob_url}"
     
     @staticmethod
-    def exists(uri: str) -> bool:
+    def file_exists(uri: str) -> bool:
         blob_client = BlobClient.from_blob_url(uri[8:])
         return blob_client.exists()
 
