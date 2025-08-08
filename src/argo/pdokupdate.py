@@ -10,7 +10,8 @@ def pdok_workflow_func() -> None:
     import logging
     import os
     from pathlib import Path
-    from main import create_pdok_index, trigger_pdok_update
+    from main import trigger_pdok_update
+    from roofhelper.pdok.PdokDeliveryProperties import create_pdok_index
     from roofhelper.defautlogging import setup_logging
     from roofhelper.io import SchemeFileHandler
 
