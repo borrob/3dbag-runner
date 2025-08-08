@@ -20,6 +20,9 @@ export PATH="/root/.local/bin:$PATH"
 uv sync
 ```
 
+## Configuration
+You can configure the default Docker image used for Argo workflows by creating a `.default_image` file in the project root. This file should contain the full image URI (e.g., `myregistry.azurecr.io/container:latest`). If this file doesn't exist, the default image `acrexample.azurecr.io/container:master` will be used.
+
 # Features
 This project provides a set of tools to create 3D buildings from point clouds using the Roofer tool. It includes functionality to:
 - Create laz file databases for point clouds.

@@ -7,7 +7,6 @@ import laspy
 from laspy import LasHeader
 from shapely import Polygon
 
-
 def extent_to_polygon(header: LasHeader) -> Polygon:
     # header.mins and header.maxs are already scaled and offset by laspy
     min_x, min_y, _ = header.mins

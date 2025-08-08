@@ -1,5 +1,5 @@
 from hera.workflows import DAG, WorkflowTemplate, Script, Parameter
-from argodefaults import argo_worker
+from argo.argodefaults import argo_worker
 
 # Create a list to store the futures
 @argo_worker()
@@ -17,7 +17,7 @@ with WorkflowTemplate(name="height",
                       arguments=[Parameter(name="source", default="azure://<sas>"),
                                  Parameter(name="destination", default="azure://<sas>")]) as w:
     with DAG(name="heightdag"):
-            queue: Script = workerfunc(arguments={
+            queue: Script = workerfunc(arguments={ # type: ignore
             "source": w.get_parameter("source"),
             "destination": w.get_parameter("destination")
         })  # type: ignore

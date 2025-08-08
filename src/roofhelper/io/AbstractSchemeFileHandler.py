@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import BinaryIO, Generator, Optional
 
 from roofhelper.io.FileHandle import FileHandle
+from roofhelper.io.EntryProperties import EntryProperties
 
 class AbstractSchemeHandler(ABC):
     @staticmethod
@@ -23,17 +24,22 @@ class AbstractSchemeHandler(ABC):
 
     @staticmethod
     @abstractmethod
-    def list_files(uri: str, regex: str = '') -> Generator[tuple[str, str]]:
+    def list_entries_shallow(uri: str, regex: str = '') -> Generator[EntryProperties]:
         pass
 
     @staticmethod
     @abstractmethod
-    def navigate(uri: str, location: str) -> str:
+    def list_entries_recursive(uri: str, regex: str = '') -> Generator[EntryProperties]:
         pass
 
     @staticmethod
     @abstractmethod
-    def exists(uri: str) -> bool:
+    def navigate(uri: str, path: str) -> str:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def file_exists(uri: str) -> bool:
         pass
 
     @staticmethod
@@ -43,7 +49,7 @@ class AbstractSchemeHandler(ABC):
 
     @staticmethod
     @abstractmethod
-    def get_bytes_range(uri: str, start: int, stop: int) -> bytes:
+    def get_bytes_range(uri: str, offset: int, length: int) -> bytes:
         pass
 
     @staticmethod
@@ -53,10 +59,15 @@ class AbstractSchemeHandler(ABC):
 
     @staticmethod
     @abstractmethod
-    def upload_stream_direct(bytes: BinaryIO, uri: str) -> None:
+    def upload_stream_direct(stream: BinaryIO, uri: str) -> None:
         pass
 
     @staticmethod
     @abstractmethod
-    def upload_stream_directory(bytes: BinaryIO, uri: str, filename: str) -> None:
+    def upload_stream_directory(stream: BinaryIO, uri: str, filename: str) -> None:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_file_size(uri: str) -> int:
         pass

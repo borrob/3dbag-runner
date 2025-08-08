@@ -1,7 +1,7 @@
 from hera.workflows import Artifact, DAG, WorkflowTemplate, Parameter, Script
 from hera.workflows.models.io.argoproj.workflow.v1alpha1 import RetryStrategy
 
-from argodefaults import argo_worker, MEMORY_EMPTY_DIR
+from argo.argodefaults import argo_worker, MEMORY_EMPTY_DIR
 
 # Create a list to store the futures
 @argo_worker(outputs=Artifact(name="queue", path="/workflow/queue.json"), volumes=MEMORY_EMPTY_DIR) 
@@ -28,7 +28,7 @@ def queuefunc(workercount: int, footprints: str, cityjsonfolder: str, year: int)
         cityjson_file = file_handler.navigate(cityjsonfolder, f"{name}.city.json")
         logger.info(f"Preparing to queue {name}")
 
-        if not file_handler.exists(cityjson_file):
+        if not file_handler.file_exists(cityjson_file):
             logger.info(f"Queued {name}")
             queue.append({"worker": worker % workercount, # We can also do this implicitly by list index, but lets make it explicit to we can choose based
                           "extent": extent, # on footprint count so we can control who does what in the future.
@@ -63,13 +63,13 @@ def workerfunc(workerid: int, footprints: str, year: int, dsm: str, ahn4: str, a
     local_queue = [x for x in global_queue if int(x["worker"]) == workerid]
     logger.info(f"Worker has to process {len(local_queue)} items of the queue")
 
-    file_handler = SchemeFileHandler("/workflow/footprints")
+    file_handler = SchemeFileHandler(Path("/workflow/footprints"))
     footprints_file = file_handler.download_file(footprints)
 
     def process_task(index: int, work: dict[str, str]) -> None:
         destination = work['destination']
         logger.info(f"Processing [{index}/{len(local_queue)}] {destination}.")
-        if file_handler.exists(destination):
+        if file_handler.file_exists(destination):
             logger.info(f"Skipping {destination}")
 
         x = work["extent"]
@@ -107,7 +107,7 @@ with WorkflowTemplate(name="roofer",
                           Parameter(name="workercount", default="1")
                       ]) as w:
     with DAG(name="rooferdag"):
-        queue: Script = queuefunc(arguments={"workercount": w.get_parameter("workercount"), 
+        queue: Script = queuefunc(arguments={"workercount": w.get_parameter("workercount"), # type: ignore
                                              "footprints": w.get_parameter("footprints"), 
                                              "cityjsonfolder": w.get_parameter("destination"),
                                              "year": w.get_parameter("year")})# type: ignore

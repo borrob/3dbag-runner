@@ -1,8 +1,9 @@
 from typing import Callable, Literal, ParamSpec, Sequence, TypeVar, Unpack, cast
 from typing_extensions import TypedDict
+from pathlib import Path
 
 
-from hera.workflows import script, EmptyDirVolume, Artifact
+from hera.workflows import script, EmptyDirVolume, Artifact, SecretVolume
 from hera.workflows.models.io.k8s.api.core.v1 import Toleration, ResourceRequirements, Affinity, NodeAffinity, NodeSelector, NodeSelectorTerm, NodeSelectorRequirement, Volume
 from hera.workflows.models.io.k8s.apimachinery.pkg.api.resource import Quantity
 from hera.workflows.models.io.argoproj.workflow.v1alpha1 import RetryStrategy 
@@ -35,7 +36,14 @@ DEFAULT_AFFINITY = Affinity(
     )
 )
 
-DEFAULT_IMAGE = "acrexample.azurecr.io/container:master"
+# Load default image from .default_image file if it exists, otherwise use fallback
+def _get_default_image() -> str:
+    default_image_file = Path(__file__).parent.parent.parent / ".default_image"
+    if default_image_file.exists():
+        return default_image_file.read_text().strip()
+    return "acrexample.azurecr.io/container:master"
+
+DEFAULT_IMAGE = _get_default_image()
 DEFAULT_VOLUMES = [EmptyDirVolume(name="workflow", mount_path="/workflow")]
 MEMORY_EMPTY_DIR = [EmptyDirVolume(name="workflow", mount_path="/workflow", medium="Memory")]
 DEFAULT_COMMAND = ["/app/.venv/bin/python"]
@@ -71,7 +79,7 @@ SIZE_D2 = ResourceRequirements(
 
 class _ScriptKwargs(TypedDict, total=False):
     image: str
-    volumes: Sequence[EmptyDirVolume]
+    volumes: Sequence[EmptyDirVolume | SecretVolume]
     command: list[str] | None
     node_selector: dict[str, str]
     tolerations: list[Toleration]

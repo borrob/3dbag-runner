@@ -11,6 +11,7 @@ from .AbstractSchemeFileHandler import AbstractSchemeHandler
 from .AzureSchemeFileHandler import AzureSchemeFileHandler
 from .FileHandle import FileHandle
 from .FileSchemeFileHandler import FileSchemeFileHandler
+from .EntryProperties import EntryProperties
 
 
 class SchemeFileHandler:
@@ -27,9 +28,13 @@ class SchemeFileHandler:
         self.file_handles.append(handle)
         return handle.path
 
-    def list_files(self, uri: str, regex: str = '') -> Generator[tuple[str, str]]:
+    def list_entries_shallow(self, uri: str, regex: str = '') -> Generator[EntryProperties]:
         parsed_uri = urlparse(uri)
-        return self.scheme_handlers[parsed_uri.scheme].list_files(uri, regex)
+        return self.scheme_handlers[parsed_uri.scheme].list_entries_shallow(uri, regex)
+
+    def list_entries_recursive(self, uri: str, regex: str = '') -> Generator[EntryProperties]:
+        parsed_uri = urlparse(uri)
+        return self.scheme_handlers[parsed_uri.scheme].list_entries_recursive(uri, regex)
 
     def upload_file_directory(self, file: Path, uri: str, filename: Optional[str] = None) -> None:
         parsed_uri = urlparse(uri)
@@ -66,6 +71,27 @@ class SchemeFileHandler:
             self.file_handles.append(FileHandle(path, True))
             return path
 
+    def create_file(self, suffix: Optional[str] = None, text: Optional[str] = None) -> Path:
+        """
+        Create a temporary file with optional text content.
+        
+        Args:
+            suffix: Optional file suffix (e.g., '.gpkg', '.txt')
+            text: Optional text content to write to the file
+            
+        Returns:
+            Path to the created temporary file
+        """
+        if self.temporary_directory:
+            os.makedirs(self.temporary_directory, exist_ok=True)
+
+        with tempfile.NamedTemporaryFile(dir=self.temporary_directory, suffix=suffix, delete=False) as f:
+            if text is not None:
+                f.write(text.encode('utf-8'))
+            path = Path(f.name)
+            self.file_handles.append(FileHandle(path, True))
+            return path
+
     def delete_if_not_local(self, path: Path) -> None:
         """
         Delete temp file is aware if the file was already a pre-existing file on disk or a remote file downloaded to a temporary location,
@@ -78,23 +104,31 @@ class SchemeFileHandler:
                     os.unlink(handle.path)
                     self.file_handles.remove(handle)
     
-    def navigate(self, uri: str, file:str) -> str:
+    def navigate(self, uri: str, path: str) -> str:
         """ 
         Navigating between specific destinations differs per URI, this function helps with uri navigation.
-        Say you're in /home you can set file to "test.txt" and this function will return /home/test.txt
+        Say you're in /home you can set path to "test.txt" and this function will return /home/test.txt
         Just a small reminder that this function does not support parent directory or other special operations.
         """
         parsed_uri = urlparse(uri)
-        return self.scheme_handlers[parsed_uri.scheme].navigate(uri, file)
+        return self.scheme_handlers[parsed_uri.scheme].navigate(uri, path)
 
-    def exists(self, uri: str) -> bool:
+    def file_exists(self, uri: str) -> bool:
         """
-        Checks for the existence of a resource at the specified URI.
+        Checks for the existence of a file at the specified URI.
         The check is performed by the handler corresponding to the URI's scheme.
         """
         parsed_uri = urlparse(uri)
-        return self.scheme_handlers[parsed_uri.scheme].exists(uri)
+        return self.scheme_handlers[parsed_uri.scheme].file_exists(uri)
 
     def upload_folder(self, folder: Path, uri: str) -> None:
         parsed_uri = urlparse(uri)
         self.scheme_handlers[parsed_uri.scheme].upload_folder(folder, uri)
+
+    def get_file_size(self, uri: str) -> int:
+        """
+        Get the size of a file in bytes at the specified URI.
+        The size check is performed by the handler corresponding to the URI's scheme.
+        """
+        parsed_uri = urlparse(uri)
+        return self.scheme_handlers[parsed_uri.scheme].get_file_size(uri)

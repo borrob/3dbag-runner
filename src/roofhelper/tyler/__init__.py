@@ -9,6 +9,7 @@ import logging
 from typing import Any, Optional
 
 from roofhelper.io import SchemeFileHandler
+from roofhelper.io.EntryProperties import EntryProperties
 
 log = logging.getLogger()
 
@@ -156,21 +157,30 @@ def translate_cityjson(data: dict[Any, Any]) -> dict[Any, Any]:
     translate_base_y = 472700.0
     translate_base_z = 0
 
+    scale_base_x = 0.001
+    scale_base_y = 0.001
+    scale_base_z = 0.001
+
     scale_x, scale_y, scale_z = data["transform"]["scale"]
     translate_x, translate_y, translate_z = data["transform"]["translate"]
 
-    dX = translate_x - translate_base_x
-    dY = translate_y - translate_base_y 
-    dZ = translate_z - translate_base_z 
+    dX = (translate_x - translate_base_x) / scale_x
+    dY = (translate_y - translate_base_y) / scale_y
+    dZ = (translate_z - translate_base_z) / scale_z
+
+    scale_difference_x = scale_base_x / scale_x
+    scale_difference_y = scale_base_y / scale_y
+    scale_difference_z = scale_base_z / scale_z
 
     for i, (x, y, z) in enumerate(data["vertices"]):
         data["vertices"][i] = (
-            int(round(x + dX / scale_x)),
-            int(round(y + dY / scale_y)),
-            int(round(z + dZ / scale_z))
+            int(round((x + dX) / scale_difference_x)),
+            int(round((y + dY) / scale_difference_y)),
+            int(round((z + dZ) / scale_difference_z))
         )
 
     data["transform"]["translate"] = (translate_base_x, translate_base_y, translate_base_z)
+    data["transform"]["scale"] = (scale_base_x, scale_base_y, scale_base_z)
 
     return data
 
@@ -212,14 +222,16 @@ def prepare_files(input_folder: str, output_folder: Path) -> Optional[str]: #Thi
 
     with ThreadPoolExecutor(max_workers=32) as executor:
         tasks = []
-        for filename, uri in handler.list_files(input_folder, regex="(i?)^.*\\.city\\.json$"):
+        for entry in handler.list_entries_shallow(input_folder, regex="(i?)^.*\\.city\\.json$"):
+            if not entry.is_file:
+                continue
             if schema == None:
-                cityjson_content = json.loads(handler.get_bytes(uri).decode())
+                cityjson_content = json.loads(handler.get_bytes(entry.full_uri).decode())
                 schema = extract_schema(cityjson_content)
 
-            filename_without_extension = filename.replace(".city.json", "")
+            filename_without_extension = entry.name.replace(".city.json", "")
             destination = Path(os.path.join(output_folder, filename_without_extension))
-            tasks.append(executor.submit(partial(_consumer, uri=uri, destination=destination)))
+            tasks.append(executor.submit(partial(_consumer, uri=entry.full_uri, destination=destination)))
 
         if len(tasks) == 0: 
             log.error("Could not find any city.json files, aborting")

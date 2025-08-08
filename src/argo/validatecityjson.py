@@ -1,11 +1,12 @@
 from hera.workflows import DAG, WorkflowTemplate, Parameter, Script
-from argodefaults import default_worker
+from argo.argodefaults import default_worker
 
 @default_worker() 
 def workerfunc(input: str) -> None:
     import json
     import logging
     from typing import Any
+    from pathlib import Path
     from roofhelper.io import SchemeFileHandler
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -48,7 +49,7 @@ def workerfunc(input: str) -> None:
             if missing:
                 log.info(f"{name} {obj_id}: missing attributes: {', '.join(missing)}")
 
-    handler = SchemeFileHandler("/workflow")
+    handler = SchemeFileHandler(Path("/workflow"))
     def _worker(name: str, uri: str) -> None: 
         city_json = handler.get_bytes(uri).decode()
         log.info(f"Validate {uri}")
@@ -57,9 +58,9 @@ def workerfunc(input: str) -> None:
         # Sanitize elevations
         check_file(data, name)
 
-    files =  handler.list_files(input, regex="(?i)^.*city\\.json$")
+    files =  (entry for entry in handler.list_entries_shallow(input, regex="(?i)^.*city\\.json$") if entry.is_file)
     with ThreadPoolExecutor(max_workers=32) as pool:
-        futures = [pool.submit(_worker, name, uri) for name, uri in files]
+        futures = [pool.submit(_worker, entry.name, entry.full_uri) for entry in files]
 
         for future in as_completed(futures):
             future.result()
