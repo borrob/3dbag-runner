@@ -3,7 +3,7 @@ from typing_extensions import TypedDict
 from pathlib import Path
 
 
-from hera.workflows import script, EmptyDirVolume, Artifact
+from hera.workflows import script, EmptyDirVolume, Artifact, SecretVolume
 from hera.workflows.models.io.k8s.api.core.v1 import Toleration, ResourceRequirements, Affinity, NodeAffinity, NodeSelector, NodeSelectorTerm, NodeSelectorRequirement, Volume
 from hera.workflows.models.io.k8s.apimachinery.pkg.api.resource import Quantity
 from hera.workflows.models.io.argoproj.workflow.v1alpha1 import RetryStrategy 
@@ -79,7 +79,7 @@ SIZE_D2 = ResourceRequirements(
 
 class _ScriptKwargs(TypedDict, total=False):
     image: str
-    volumes: Sequence[EmptyDirVolume]
+    volumes: Sequence[EmptyDirVolume | SecretVolume]
     command: list[str] | None
     node_selector: dict[str, str]
     tolerations: list[Toleration]

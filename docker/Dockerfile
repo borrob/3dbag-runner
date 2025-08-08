@@ -33,6 +33,7 @@ COPY mypy.ini /app
 COPY uv.lock /app
 COPY docker/metadata.city.json /metadata.city.json
 COPY docker/binaries/proj.db /usr/share/proj/proj.db
+COPY docker/ahn.json /ahn.json
 
 RUN uv sync
 
