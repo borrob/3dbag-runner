@@ -38,7 +38,7 @@ class PdokS3Uploader:
                 aws_access_key_id=self.access_key,
                 aws_secret_access_key=self.secret_key,
                 endpoint_url=self.endpoint,
-                config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+                Config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
                 use_ssl=True,
                 verify=True  # Enable SSL certificate verification
             )
