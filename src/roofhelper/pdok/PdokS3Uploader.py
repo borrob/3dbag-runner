@@ -51,19 +51,15 @@ class PdokS3Uploader:
             s3_destination: str = f"{s3_prefix}/rel{date_marker}/{expected_gpkg_name}"
             trigger_update_path: str = f"{s3_prefix}/rel{date_marker}"
 
-            # Get file size for Content-Length header
-            file_size = os.path.getsize(geopackage_file)
-
-            log.info(f"Size of geopackage_file is {file_size}")
-
             # Use put_object instead of upload_file for better control over headers
             log.info("Starting file upload...")
             with open(geopackage_file, 'rb') as file_data:
+                file_content = file_data.read()
                 self.s3_client.put_object(
                     Bucket="deliveries",
                     Key=s3_destination,
-                    Body=file_data,
-                    ContentLength=file_size
+                    Body=file_content,
+                    ContentLength=len(file_content)
                 )
 
             log.info(f"Done uploading {geopackage_file} to {self.endpoint}/{s3_destination}")
