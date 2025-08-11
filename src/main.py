@@ -49,7 +49,7 @@ def createlazdb(uri: str, target: Path, pattern: str = "(?i)^.*(las|laz)$", epsg
     def _worker(entry: EntryProperties) -> dict[str, Any]:
         """ Used in createlazdb with multiprocessing to processes multiple laz files in parallel """
         header_raw = handler.get_bytes_range(entry.full_uri, 0, 4096)
-        with laspy.open(BytesIO(header_raw)) as laz_file:
+        with laspy.open(BytesIO(header_raw), "r") as laz_file:
             laz_header = laz_file.header
             extent_polygon = laz.extent_to_polygon(laz_header)
             return {

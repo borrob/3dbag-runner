@@ -25,7 +25,10 @@ class FileSchemeFileHandler(AbstractSchemeHandler):
 
     @staticmethod
     def download_file(uri: str, temporary_directory: Optional[Path], file: Optional[str] = None) -> FileHandle:
-        return FileHandle(FileSchemeFileHandler._get_local_path(uri, file), False)
+        file_path = FileSchemeFileHandler._get_local_path(uri, file)
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+        return FileHandle(file_path, False)
 
     @staticmethod
     def _list_files_impl(uri: str, regex: Optional[str] = None, recursive: bool = False) -> Generator[EntryProperties, None, None]:
