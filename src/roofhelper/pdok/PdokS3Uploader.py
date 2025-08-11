@@ -44,6 +44,7 @@ class PdokS3Uploader:
 
     def upload_file(self, geopackage_file: Path, s3_prefix: str, expected_gpkg_name: str) -> UploadResult:
         """Upload a geopackage file to S3 and return upload results."""
+        from boto3.s3.transfer import TransferConfig
         log.info(f"Uploading {geopackage_file} to {self.endpoint}")
 
         try:
@@ -51,12 +52,16 @@ class PdokS3Uploader:
             s3_destination: str = f"{s3_prefix}/rel{date_marker}/{expected_gpkg_name}"
             trigger_update_path: str = f"{s3_prefix}/rel{date_marker}"
 
-            # Use upload_file method which handles Content-Length properly
+            # Set multipart_threshold above file size to force single PUT
+            file_size = os.path.getsize(geopackage_file)
+            config = TransferConfig(multipart_threshold=file_size + 1)
+
             log.info("Starting file upload...")
             self.s3_client.upload_file(
                 str(geopackage_file),
                 "deliveries",
-                s3_destination
+                s3_destination,
+                Config=config
             )
 
             log.info(f"Done uploading {geopackage_file} to {self.endpoint}/{s3_destination}")
