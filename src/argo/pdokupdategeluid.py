@@ -62,7 +62,7 @@ def pdok_workflow_func() -> None:
 
     # Step 2: Trigger PDOK update using the created index
     logger.info("Starting PDOK update trigger")
-    trigger_pdok_update(f"file://{index_destination}",
+    trigger_pdok_update(index_destination,
                         destination_s3_url,
                         destination_s3_user,
                         destination_s3_key,
