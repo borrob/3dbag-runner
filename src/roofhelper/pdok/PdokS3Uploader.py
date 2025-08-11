@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 import boto3
 from roofhelper.defautlogging import setup_logging
 from roofhelper.pdok.UploadResult import UploadResult
@@ -39,7 +40,18 @@ class PdokS3Uploader:
             s3_destination: str = f"{s3_prefix}/rel{date_marker}/{expected_gpkg_name}"
             trigger_update_path: str = f"{s3_prefix}/rel{date_marker}"
 
-            self.s3_client.upload_file(geopackage_file, "deliveries", s3_destination)
+            # Get file size for Content-Length header
+            file_size = os.path.getsize(geopackage_file)
+            
+            # Use put_object instead of upload_file for better control over headers
+            with open(geopackage_file, 'rb') as file_data:
+                self.s3_client.put_object(
+                    Bucket="deliveries",
+                    Key=s3_destination,
+                    Body=file_data,
+                    ContentLength=file_size
+                )
+            
             log.info(f"Done uploading {geopackage_file} to {self.endpoint}/{s3_destination}")
 
             return UploadResult(
