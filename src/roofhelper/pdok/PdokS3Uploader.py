@@ -51,16 +51,13 @@ class PdokS3Uploader:
             s3_destination: str = f"{s3_prefix}/rel{date_marker}/{expected_gpkg_name}"
             trigger_update_path: str = f"{s3_prefix}/rel{date_marker}"
 
-            # Use put_object instead of upload_file for better control over headers
+            # Use upload_file method which handles Content-Length properly
             log.info("Starting file upload...")
-            with open(geopackage_file, 'rb') as file_data:
-                file_content = file_data.read()
-                self.s3_client.put_object(
-                    Bucket="deliveries",
-                    Key=s3_destination,
-                    Body=file_content,
-                    ContentLength=len(file_content)
-                )
+            self.s3_client.upload_file(
+                str(geopackage_file),
+                "deliveries",
+                s3_destination
+            )
 
             log.info(f"Done uploading {geopackage_file} to {self.endpoint}/{s3_destination}")
 
