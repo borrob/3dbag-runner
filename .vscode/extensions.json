@@ -5,6 +5,8 @@
         "ms-python.mypy-type-checker",
         "ms-python.debugpy",
         "ms-python.vscode-pylance",
+        "ms-python.flake8",
+        "ms-python.black",
         "azurite.azurite"
     ]
 }

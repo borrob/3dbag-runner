@@ -42,7 +42,7 @@ class PdokS3Uploader:
 
             # Get file size for Content-Length header
             file_size = os.path.getsize(geopackage_file)
-            
+
             # Use put_object instead of upload_file for better control over headers
             with open(geopackage_file, 'rb') as file_data:
                 self.s3_client.put_object(
@@ -51,7 +51,7 @@ class PdokS3Uploader:
                     Body=file_data,
                     ContentLength=file_size
                 )
-            
+
             log.info(f"Done uploading {geopackage_file} to {self.endpoint}/{s3_destination}")
 
             return UploadResult(
