@@ -38,7 +38,7 @@ class PdokS3Uploader:
                 aws_access_key_id=self.access_key,
                 aws_secret_access_key=self.secret_key,
                 endpoint_url=self.endpoint,
-                Config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+                config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
                 use_ssl=True,
                 verify=True  # Enable SSL certificate verification
             )
@@ -57,8 +57,7 @@ class PdokS3Uploader:
             self.s3_client.upload_file(
                 str(geopackage_file),
                 "deliveries",
-                s3_destination,
-                config=Config(signature_version="s3v4", s3={"addressing_style": "path"})
+                s3_destination
             )
 
             log.info(f"Done uploading {geopackage_file} to {self.endpoint}/{s3_destination}")
