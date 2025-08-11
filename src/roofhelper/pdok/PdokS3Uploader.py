@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+from pathlib import Path
 import boto3
 from roofhelper.defautlogging import setup_logging
 from roofhelper.pdok.UploadResult import UploadResult
@@ -31,7 +32,7 @@ class PdokS3Uploader:
             )
         return self._s3_client
 
-    def upload_file(self, geopackage_file: str, s3_prefix: str, expected_gpkg_name: str) -> UploadResult:
+    def upload_file(self, geopackage_file: Path, s3_prefix: str, expected_gpkg_name: str) -> UploadResult:
         """Upload a geopackage file to S3 and return upload results."""
         log.info(f"Uploading {geopackage_file} to {self.endpoint}")
 
@@ -42,6 +43,8 @@ class PdokS3Uploader:
 
             # Get file size for Content-Length header
             file_size = os.path.getsize(geopackage_file)
+
+            log.info(f"Size of geopackage_file is {file_size}")
 
             # Use put_object instead of upload_file for better control over headers
             with open(geopackage_file, 'rb') as file_data:

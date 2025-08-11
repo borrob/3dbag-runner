@@ -509,7 +509,7 @@ def trigger_pdok_update(source: str,
 
         # Create S3 uploader and upload file
         uploader = PdokS3Uploader(destination_s3_url, destination_s3_user, destination_s3_key)
-        upload_result: UploadResult = uploader.upload_file(str(local_geopackage_path), s3_prefix, expected_gpkg_name)
+        upload_result: UploadResult = uploader.upload_file(local_geopackage_path, s3_prefix, expected_gpkg_name)
 
         if not upload_result.success:
             log.error(f"Upload failed: {upload_result.error_message}")
