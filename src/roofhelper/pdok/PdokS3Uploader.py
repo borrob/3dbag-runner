@@ -1,11 +1,19 @@
 from datetime import datetime
 import os
 from pathlib import Path
+import logging
 import boto3
+
 from roofhelper.defautlogging import setup_logging
 from roofhelper.pdok.UploadResult import UploadResult
 
 log = setup_logging()
+
+# Enable verbose logging for boto3/botocore and urllib3
+logging.getLogger('botocore').setLevel(logging.DEBUG)
+logging.getLogger('botocore.credentials').setLevel(logging.INFO)  # Reduce credential spam
+logging.getLogger('urllib3.connectionpool').setLevel(logging.DEBUG)
+logging.getLogger('urllib3.util.retry').setLevel(logging.DEBUG)
 
 
 class PdokS3Uploader:
@@ -29,6 +37,8 @@ class PdokS3Uploader:
                 aws_access_key_id=self.access_key,
                 aws_secret_access_key=self.secret_key,
                 endpoint_url=self.endpoint,
+                use_ssl=True,
+                verify=True  # Enable SSL certificate verification
             )
         return self._s3_client
 
@@ -47,6 +57,7 @@ class PdokS3Uploader:
             log.info(f"Size of geopackage_file is {file_size}")
 
             # Use put_object instead of upload_file for better control over headers
+            log.info("Starting file upload...")
             with open(geopackage_file, 'rb') as file_data:
                 self.s3_client.put_object(
                     Bucket="deliveries",
@@ -66,6 +77,10 @@ class PdokS3Uploader:
         except Exception as e:
             error_msg = f"Failed to upload {geopackage_file}: {str(e)}"
             log.error(error_msg)
+            log.error(f"Exception type: {type(e).__name__}")
+            # Log the full exception for debugging
+            import traceback
+            log.error(f"Full traceback: {traceback.format_exc()}")
             return UploadResult(
                 s3_upload_path="",
                 s3_destination="",
