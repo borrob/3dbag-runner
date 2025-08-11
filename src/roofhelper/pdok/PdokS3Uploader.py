@@ -36,11 +36,11 @@ class PdokS3Uploader:
 
         try:
             date_marker: str = datetime.now().strftime("%Y%m%d%H%M%S")
-            s3_destination: str = f"/{s3_prefix}/rel{date_marker}/{expected_gpkg_name}"
+            s3_destination: str = f"{s3_prefix}/rel{date_marker}/{expected_gpkg_name}"
             trigger_update_path: str = f"{s3_prefix}/rel{date_marker}"
 
             self.s3_client.upload_file(geopackage_file, "deliveries", s3_destination)
-            log.info(f"Done uploading {geopackage_file} to {self.endpoint}{s3_destination}")
+            log.info(f"Done uploading {geopackage_file} to {self.endpoint}/{s3_destination}")
 
             return UploadResult(
                 s3_upload_path=trigger_update_path,
