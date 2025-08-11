@@ -59,7 +59,7 @@ def extract_ahn_key_from_filename(filename: str) -> Optional[str]:
     return ahn_key
 
 
-def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path,
+def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: str,
                       download_url_prefix: str,
                       temporary_directory: Optional[Path] = None) -> None:
     """
@@ -173,7 +173,7 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: Path,
                     log.info(f"Created layer '{folder_type}' with {len(features)} features")
 
             # Upload temporary file to destination URI using SchemeFileHandler
-            file_handler.upload_file_direct(temp_file, str(destination))
+            file_handler.upload_file_direct(temp_file, destination)
 
             log.info(f"Created PDOK index with {total_features} total features across {len([t for t, f in features_by_type.items() if f])} layers at {destination}")
         finally:

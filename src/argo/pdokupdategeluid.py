@@ -55,7 +55,7 @@ def pdok_workflow_func() -> None:
     file_handler = SchemeFileHandler(Path("/workflow/cache"))
     ahn_path = file_handler.download_file(ahn_source)
 
-    index_destination = Path("/workflow/cache/pdok_index.gpkg")
+    index_destination = "file:///workflow/cache/pdok_index.gpkg"
     create_pdok_index(source, ahn_path, index_destination, url_prefix, Path("/workflow/cache"))
 
     logger.info("PDOK index created successfully")
