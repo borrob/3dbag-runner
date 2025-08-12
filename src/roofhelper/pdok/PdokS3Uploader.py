@@ -28,22 +28,6 @@ class PdokS3Uploader:
 
     from botocore.client import BaseClient
 
-    @property
-    def s3_client(self) -> "BaseClient":
-        """Lazy initialization of S3 client."""
-        if self._s3_client is None:
-            session = boto3.session.Session()  # type: ignore[call-arg]
-            self._s3_client = session.client(
-                service_name='s3',
-                aws_access_key_id=self.access_key,
-                aws_secret_access_key=self.secret_key,
-                endpoint_url=self.endpoint,
-                config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
-                use_ssl=True,
-                verify=True  # Enable SSL certificate verification
-            )
-        return self._s3_client
-
     def upload_file(self, geopackage_file: Path, s3_prefix: str, expected_gpkg_name: str) -> UploadResult:
         """Upload a geopackage file to S3 and return upload results."""
         log.info(f"Uploading {geopackage_file} to {self.endpoint}")
@@ -54,7 +38,16 @@ class PdokS3Uploader:
             trigger_update_path: str = f"{s3_prefix}/rel{date_marker}"
 
             log.info("Starting file upload...")
-            self.s3_client.upload_file(
+            session = boto3.session.Session() # type: ignore
+
+            s3_client = session.client(
+                service_name='s3',
+                aws_access_key_id=self.access_key,
+                aws_secret_access_key=self.secret_key,
+                endpoint_url=self.endpoint,
+            )
+
+            s3_client.upload_file(
                 str(geopackage_file),
                 "deliveries",
                 s3_destination
