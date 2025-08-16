@@ -10,7 +10,7 @@ import tempfile
 from threading import Thread
 from typing import BinaryIO, Generator, Optional
 from urllib.parse import urlparse
-from azure.storage.blob import BlobClient, ContainerClient, BlobProperties
+from azure.storage.blob import BlobClient, ContainerClient, BlobProperties, ExponentialRetry
 
 from .AbstractSchemeFileHandler import AbstractSchemeHandler
 from .FileHandle import FileHandle
@@ -20,6 +20,19 @@ log = logging.getLogger()
 
 
 class AzureSchemeFileHandler(AbstractSchemeHandler):
+    @staticmethod
+    def _get_retry_policy() -> ExponentialRetry:
+        """
+        Create a consistent retry policy for all Azure operations.
+        Handles connection issues like 'Connection reset by peer' errors.
+        """
+        return ExponentialRetry(
+            initial_backoff=1,      # Start with 1 second delay (faster than default 15)
+            increment_base=2,       # Double the delay each time
+            retry_total=5,          # Retry up to 5 times (default is 3)
+            random_jitter_range=1   # Add some randomness to avoid thundering herd
+        )
+
     @staticmethod
     def _parse_azure_uri(uri: str) -> tuple[str, str, str, str, str, str]:
         """
@@ -86,7 +99,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         _, extension = os.path.splitext(parsed_url.path)
 
         os.makedirs(str(temporary_directory), exist_ok=True)
-        blob_client = BlobClient.from_blob_url(sas_url)
+        blob_client = BlobClient.from_blob_url(sas_url, retry_policy=AzureSchemeFileHandler._get_retry_policy())
 
         with tempfile.NamedTemporaryFile(dir=temporary_directory, delete=False, suffix=extension) as f:
             stream = blob_client.download_blob(max_concurrency=10)
@@ -116,7 +129,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
 
     @staticmethod
     def upload_stream_direct(stream: BinaryIO, uri: str) -> None:
-        blob_client = BlobClient.from_blob_url(uri[8:])
+        blob_client = BlobClient.from_blob_url(uri[8:], retry_policy=AzureSchemeFileHandler._get_retry_policy())
 
         log.info("Uploading " + uri[8:])
         blob_client.upload_blob(AzureSchemeFileHandler._get_read_buffer(stream), overwrite=True)
@@ -128,7 +141,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
 
     @staticmethod
     def upload_file_direct(file: Path, uri: str) -> None:
-        blob_client = BlobClient.from_blob_url(uri[8:])
+        blob_client = BlobClient.from_blob_url(uri[8:], retry_policy=AzureSchemeFileHandler._get_retry_policy())
         log.info("Uploading " + uri[8:])
 
         with open(file, "rb") as f:
@@ -152,7 +165,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
 
         # Get the container client using the helper function
         container_url = AzureSchemeFileHandler._make_container_url(scheme, netloc, account_name, container_name, sas_token)
-        container_client = ContainerClient.from_container_url(container_url)
+        container_client = ContainerClient.from_container_url(container_url, retry_policy=AzureSchemeFileHandler._get_retry_policy())
 
         # Walk through the blobs in the container
         # Use delimiter for shallow listing, no delimiter for recursive listing
@@ -226,8 +239,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
 
     @staticmethod  # change to only
     def get_bytes(uri: str) -> bytes:
-        blob_client = BlobClient.from_blob_url(uri[8:])
-
+        blob_client = BlobClient.from_blob_url(uri[8:], retry_policy=AzureSchemeFileHandler._get_retry_policy())
         stream = blob_client.download_blob()
         return stream.readall()
 
@@ -249,12 +261,12 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
 
     @staticmethod
     def file_exists(uri: str) -> bool:
-        blob_client = BlobClient.from_blob_url(uri[8:])
+        blob_client = BlobClient.from_blob_url(uri[8:], retry_policy=AzureSchemeFileHandler._get_retry_policy())
         return blob_client.exists()
 
     @staticmethod
     def get_bytes_range(uri: str, offset: int, length: int) -> bytes:
-        blob_client = BlobClient.from_blob_url(blob_url=uri[8:])
+        blob_client = BlobClient.from_blob_url(blob_url=uri[8:], retry_policy=AzureSchemeFileHandler._get_retry_policy())
         stream = blob_client.download_blob(offset=offset, length=length)
         return stream.readall()
 
@@ -301,7 +313,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
                 # Create blob URL using helper function
                 blob_url = AzureSchemeFileHandler._make_blob_url(scheme, netloc, account_name, container_name, blob_path, sas_token)
 
-                blob_client = BlobClient.from_blob_url(blob_url)
+                blob_client = BlobClient.from_blob_url(blob_url, retry_policy=AzureSchemeFileHandler._get_retry_policy())
                 with open(local_path, "rb") as data:
                     log.info(f"Uploading {local_path}")
                     blob_client.upload_blob(data, overwrite=True)
@@ -318,6 +330,6 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
 
     @staticmethod
     def get_file_size(uri: str) -> int:
-        blob_client = BlobClient.from_blob_url(uri[8:])
+        blob_client = BlobClient.from_blob_url(uri[8:], retry_policy=AzureSchemeFileHandler._get_retry_policy())
         blob_properties = blob_client.get_blob_properties()
         return blob_properties.size

@@ -468,7 +468,8 @@ def tyler_runner(source: str, destination: str, temporary_directory: Path, mode:
             tyler.cityjsonbuilding_to_glb(tyler_input_directory, metadata_city_json, tyler_output_directory, building_schema)
         case "terrain":
             log.info("Running tyler for terrain")
-            tyler.cityjsonterrain_to_glb(tyler_input_directory, metadata_city_json, tyler_output_directory, found_schema)
+            terrain_schema = "3df_id:string,3df_class:string,relatievehoogteligging:string,plus_type:string,bgt_status:string,bgt_fysiekvoorkomen:string,bgt_functie:string,optalud:string,p_punt_datum:string,plus_functie:string,starttijd_3dfier_flow:string,namespace:string,plus_status:string,isbufferobject:int,bgt_type:string,gml_id:string,bladnaam:string,objecteindtijd:string,objectbegintijd:string,eindregistratie:string,isaltered:int,rh_standardized:string,bronhouder:string,lv_publicatiedatum:string,plus_fysiekvoorkomen:string,tijdstipregistratie:string,hoortbijbrug:string,aantal_punten:string"
+            tyler.cityjsonterrain_to_glb(tyler_input_directory, metadata_city_json, tyler_output_directory, terrain_schema)
         case _:
             raise ValueError(f"Invalid mode '{mode}': must be 'buildings' or 'terrain'")
 
