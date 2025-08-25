@@ -95,7 +95,7 @@ def cityjsonterrain_to_glb(features_path: Path, metadata_path: Path, output_path
         "--object-type", "Road",
         "--object-type", "GenericCityObject",
         "--object-type", "Bridge",
-        "--object-type", "Separation",
+        "--object-type", "OtherConstruction",
         # "--object-attribute", "objectid:int,bronhouder:string,bgt_fysiekvoorkomen:string,bgt_type:string",
         "--3dtiles-metadata-class", "terrain",
         "--grid-minz=-15",
@@ -117,7 +117,6 @@ def cityjsonterrain_to_glb(features_path: Path, metadata_path: Path, output_path
         "--color-tunnel-installation", "#B8BBB8",
         "--color-tunnel-part", "#B8BBB8",
         "--color-water-body", "#04FFF6",
-        "--color-separation", "#622FEE",
         "--grid-cellsize=250",
     ]
 
