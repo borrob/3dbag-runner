@@ -97,9 +97,6 @@ def create_pdok_index(source_uri: str, ahn_json_path: Path, destination: str,
 
         # Check for geluid folder in year directory
         geluid_uri = file_handler.navigate(year_entry.full_uri, "geluid")
-        if list(file_handler.list_entries_shallow(geluid_uri)) == 0:
-            continue
-
         layer_entries: list[EntryProperties] = []
         # Check if all expected folder types exist before processing
         for folder in file_handler.list_entries_shallow(geluid_uri):

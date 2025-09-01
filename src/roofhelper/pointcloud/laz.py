@@ -43,8 +43,8 @@ def laz_tile_split(input_laz: Path, output_dir: Path, grid_size: float) -> list[
 
         point_batches = pointcloud.chunk_iterator(chunk_size)
         for point_batch in point_batches:
-            tile_x_idx = ((point_batch.x - grid_origin_x) / grid_size).astype(np.int32)  # the type cast from float to int wil cast as math.floor
-            tile_y_idx = ((point_batch.y - grid_origin_y) / grid_size).astype(np.int32)
+            tile_x_idx = ((point_batch.x - grid_origin_x) / grid_size).astype(np.int32)  # type: ignore
+            tile_y_idx = ((point_batch.y - grid_origin_y) / grid_size).astype(np.int32)  # type: ignore
 
             for tx in range(min_tile_x, max_tile_x):
                 for ty in range(min_tile_y, max_tile_y):
@@ -63,11 +63,11 @@ def laz_tile_split(input_laz: Path, output_dir: Path, grid_size: float) -> list[
                     if (tx, ty) not in generated_tiles:
                         # Create and write header for new tile
                         with laspy.open(tile_path, mode="w", header=pointcloud.header) as out_writer:
-                            out_writer.write_points(selected_points)
+                            out_writer.write_points(selected_points)  # type: ignore
                             generated_tiles[(tx, ty)] = str(tile_path)
                     else:
                         # Append to existing tile
                         with laspy.open(tile_path, mode="a") as out_writer:
-                            out_writer.append_points(selected_points)
+                            out_writer.append_points(selected_points)  # type: ignore
 
         return list(generated_tiles.values())

@@ -9,7 +9,7 @@ from pathlib import Path
 from queue import Empty
 from threading import Thread
 from typing import BinaryIO, Generator, Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 
 from azure.storage.blob import (BlobClient, BlobProperties, ContainerClient,
                                 ExponentialRetry)
@@ -248,11 +248,11 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         # Parse the original URI to get the current path prefix
         scheme, netloc, account_name, container_name, current_path, sas_token = AzureSchemeFileHandler._parse_azure_uri(uri)
 
-        # Combine current path with the new relative path
-        if current_path and not current_path.endswith('/'):
-            combined_path = f"{current_path}/{path}"
-        elif current_path:
-            combined_path = f"{current_path}{path}"
+        # Use urljoin to properly combine paths
+        if current_path:
+            # Ensure current_path ends with '/' for proper joining behavior
+            base_path = current_path if current_path.endswith('/') else f"{current_path}/"
+            combined_path = urljoin(base_path, path).rstrip('/')
         else:
             combined_path = path
 

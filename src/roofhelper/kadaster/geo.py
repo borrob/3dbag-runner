@@ -42,8 +42,13 @@ def _generate_cells(
 
 def grid_create_on_intersecting_centroid(filepath: Path, grid_size: int) -> Generator[tuple[float, float, float, float]]:
     bounds = None
+
     with fiona.open(filepath, 'r') as src:
         bounds = src.bounds
+
+    if bounds is None:
+        raise ValueError(f"Could not determine bounds for file: {filepath}")
+
     minx, miny, maxx, maxy = bounds
 
     minx = math.floor(minx / grid_size) * grid_size
