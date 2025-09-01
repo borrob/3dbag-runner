@@ -1,20 +1,22 @@
-from io import BytesIO, TextIOBase
 import logging
-from multiprocessing import Queue
 import multiprocessing
 import os
-from pathlib import Path
-from queue import Empty
 import re
 import tempfile
+from io import BytesIO, TextIOBase
+from multiprocessing import Queue
+from pathlib import Path
+from queue import Empty
 from threading import Thread
 from typing import BinaryIO, Generator, Optional
 from urllib.parse import urlparse
-from azure.storage.blob import BlobClient, ContainerClient, BlobProperties, ExponentialRetry
+
+from azure.storage.blob import (BlobClient, BlobProperties, ContainerClient,
+                                ExponentialRetry)
 
 from .AbstractSchemeFileHandler import AbstractSchemeHandler
-from .FileHandle import FileHandle
 from .EntryProperties import EntryProperties
+from .FileHandle import FileHandle
 
 log = logging.getLogger()
 
@@ -65,16 +67,15 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         return parsed_uri.scheme, parsed_uri.netloc, account_name, container_name, path_prefix, parsed_uri.query
 
     @staticmethod
-    def _make_container_url(scheme: str, netloc: str, account_name: str, container_name: str, sas_token: str) -> str:
+    def _make_container_client(scheme: str, netloc: str, account_name: str, container_name: str, sas_token: str) -> ContainerClient:
         """
-        Create a container URL that works with both Azurite and real Azure Storage.
+        Create a container client that works with both Azurite and real Azure Storage.
         """
         if netloc.startswith('localhost') or netloc.startswith('127.0.0.1'):
             # Azurite format
-            return f"{scheme}://{netloc}/{account_name}/{container_name}?{sas_token}"
-        else:
-            # Real Azure Storage format
-            return f"{scheme}://{netloc}/{container_name}?{sas_token}"
+            return ContainerClient.from_container_url(f"{scheme}://{netloc}/{account_name}/{container_name}?{sas_token}", retry_policy=AzureSchemeFileHandler._get_retry_policy())
+
+        return ContainerClient.from_container_url(f"{scheme}://{netloc}/{container_name}?{sas_token}", retry_policy=AzureSchemeFileHandler._get_retry_policy())
 
     @staticmethod
     def _make_blob_url(scheme: str, netloc: str, account_name: str, container_name: str, blob_path: str, sas_token: str) -> str:
@@ -164,8 +165,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         pattern = re.compile(regex) if regex else None
 
         # Get the container client using the helper function
-        container_url = AzureSchemeFileHandler._make_container_url(scheme, netloc, account_name, container_name, sas_token)
-        container_client = ContainerClient.from_container_url(container_url, retry_policy=AzureSchemeFileHandler._get_retry_policy())
+        container_client = AzureSchemeFileHandler._make_container_client(scheme, netloc, account_name, container_name, sas_token)
 
         # Walk through the blobs in the container
         # Use delimiter for shallow listing, no delimiter for recursive listing

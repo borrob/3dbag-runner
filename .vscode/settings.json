@@ -4,5 +4,39 @@
         "tests"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    
+    // Enable IntelliSense
+    "editor.quickSuggestions": {
+        "other": true,
+        "comments": false,
+        "strings": false
+    },
+    "editor.suggestOnTriggerCharacters": true,
+    "editor.acceptSuggestionOnCommitCharacter": true,
+    "editor.acceptSuggestionOnEnter": "on",
+    "editor.wordBasedSuggestions": "matchingDocuments",
+    "python.analysis.autoImportCompletions": true,
+    
+    // Disable AI-powered suggestions (keep only agent mode)
+    "github.copilot.enable": {
+        "*": false,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false,
+        "yaml": false,
+        "json": false,
+        "python": false,
+        "javascript": false,
+        "typescript": false,
+        "html": false,
+        "css": false
+    },
+    "editor.inlineSuggest.enabled": false,
+    
+    // Ensure Python language server provides good IntelliSense
+    "python.analysis.completeFunctionParens": true,
+    "python.analysis.autoSearchPaths": true,
+    "python.analysis.diagnosticMode": "workspace",
+    "python.analysis.indexing": true
 }
