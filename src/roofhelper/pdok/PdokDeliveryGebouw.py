@@ -38,28 +38,33 @@ def _extract_dsm_coordinates_from_filename(filename: str) -> Optional[tuple[int,
     return None
 
 
+def _extract_legacy_ahn_key_from_filename(filename: str) -> Optional[str]:
+    """
+    Extracts AHN key from legacy filename format.
+    Expected pattern: <ahn_key>_<anything> - Example: 13bn1_something.laz -> 13bn1
+    """
+    basename = os.path.basename(filename)
+    legacy_match = re.match(r"^(?:.*)([0-9]{2}[a-z]{2}\d)(?:_.*)$", basename, re.IGNORECASE)
+    if legacy_match:
+        return legacy_match.group(1)
+    return None
+
+
 def _extract_ahn_key_from_filename(filename: str) -> Optional[str]:
     """
-    Extracts AHN key from filename.
-    Expected patterns:
-    - <ahn_key>_<anything> (legacy format) - Example: 13bn1_something.laz -> 13bn1
-    - <name>_<year>_<x>_<y> (new format) - Example: gebouwen_2021_123_456.laz -> use coordinates to create key
+    Extracts AHN key from filename, supporting both legacy and new formats.
+    Returns the key that can be used to look up geometry.
     """
     basename = os.path.basename(filename)
 
     # Try new format first: <name>_<year>_<x>_<y>
-    new_format_match = re.match(r"^(.+)_(\d{4})_(\d+)_(\d+)(?:\.\w+)?$", basename)
-    if new_format_match:
-        x, y = int(new_format_match.group(3)), int(new_format_match.group(4))
-        # Create a synthetic key from coordinates for 2x2km tiles
+    coords = _extract_coordinates_from_new_format(filename)
+    if coords:
+        x, y = coords
         return f"{x}_{y}"
 
     # Try legacy format: <ahn_key>_<anything>
-    legacy_match = re.match(r"^(?:.*)([0-9]{2}[a-z]{2}\d)(?:_.*)$", basename)
-    if legacy_match:
-        return legacy_match.group(1)
-
-    return None
+    return _extract_legacy_ahn_key_from_filename(filename)
 
 
 def _extract_coordinates_from_new_format(filename: str) -> Optional[tuple[int, int]]:
@@ -77,20 +82,27 @@ def _extract_coordinates_from_new_format(filename: str) -> Optional[tuple[int, i
     return None
 
 
-def _create_geometry_from_coordinates(x: int, y: int, tile_size_km: int = 2) -> Polygon:
-    """Create geometry for tile based on coordinates and tile size."""
-    tile_size_m = tile_size_km * 1000  # Convert km to meters
+def _create_geometry_from_coordinates(x: int, y: int, tile_size_meters: int = 2000) -> Polygon:
+    """
+    Create proper bounding box geometry for tile based on coordinates and tile size.
+    
+    Args:
+        x: X coordinate (in km units)
+        y: Y coordinate (in km units) 
+        tile_size_meters: Size of tile in meters (default 2000m for 2x2km)
+    
+    Returns:
+        Polygon representing the bounding box of the tile
+    """
 
-    # Convert coordinates to actual coordinates (assuming they're in km units)
-    x_m = x * 1000
-    y_m = y * 1000
 
+    # Create bounding box polygon: bottom-left to top-right
     return Polygon([
-        (x_m, y_m),
-        (x_m + tile_size_m, y_m),
-        (x_m + tile_size_m, y_m + tile_size_m),
-        (x_m, y_m + tile_size_m),
-        (x_m, y_m)  # close polygon
+        (x, y),                                    # bottom-left
+        (x + tile_size_meters, y),                 # bottom-right
+        (x + tile_size_meters, y + tile_size_meters), # top-right
+        (x, y + tile_size_meters),                 # top-left
+        (x, y)                                     # close polygon
     ])
 
 
@@ -259,7 +271,7 @@ def _process_3d_layers(file_handler: SchemeFileHandler, source_uri: str, ahn_jso
     features_by_type: Dict[str, List[FeatureWithGeometry]] = {}
 
     # Process each year directory
-    for year in year_directories:
+    for year in [x for x in year_directories if x > 2021]:
         year_uri = file_handler.navigate(source_uri, str(year))
 
         try:
@@ -304,7 +316,7 @@ def _process_3d_layers(file_handler: SchemeFileHandler, source_uri: str, ahn_jso
                         if coords:
                             # New format: create geometry from coordinates (2x2 km tiles)
                             x, y = coords
-                            geometry = _create_geometry_from_coordinates(x, y, tile_size_km=2)
+                            geometry = _create_geometry_from_coordinates(x, y, tile_size_meters=2000)
                         else:
                             # Legacy format: use AHN geometries
                             if ahn_key.lower() in ahn_geometries:
@@ -365,12 +377,37 @@ def get_pdok_building_features(source_uri: str, ahn_json_path: Path, download_ur
     file_handler = SchemeFileHandler()
 
     # Process DSM layers
-    dsm_features = _process_dsm_layers(file_handler, source_uri, download_url_prefix)
+    dsm_features: dict[str, list[FeatureWithGeometry]] = _process_dsm_layers(file_handler, source_uri, download_url_prefix)
+    
+    # Log DSM feature counts
+    for layer_key, features in dsm_features.items():
+        log.info(f"DSM layer '{layer_key}': {len(features)} features")
 
     # Process 3D layers
     ahn_3d_features = _process_3d_layers(file_handler, source_uri, ahn_json_path, download_url_prefix)
+    
+    # Log 3D feature counts
+    for layer_key, features in ahn_3d_features.items():
+        log.info(f"3D layer '{layer_key}': {len(features)} features")
 
-    # Combine results
-    features_by_type = {**dsm_features, **ahn_3d_features}
+    # Combine results - properly merge dictionaries by combining lists for overlapping keys
+    features_by_type: Dict[str, List[FeatureWithGeometry]] = {}
+    
+    # Add DSM features
+    for layer_key, features in dsm_features.items():
+        features_by_type[layer_key] = features.copy()
+    
+    # Add 3D features, combining with existing if key already exists
+    for layer_key, features in ahn_3d_features.items():
+        if layer_key in features_by_type:
+            features_by_type[layer_key].extend(features)
+            log.info(f"Combined layer '{layer_key}': {len(features_by_type[layer_key])} total features")
+        else:
+            features_by_type[layer_key] = features.copy()
+
+    # Log final combined counts
+    log.info("Final feature counts per layer:")
+    for layer_key, features in features_by_type.items():
+        log.info(f"  {layer_key}: {len(features)} features")
 
     return features_by_type

@@ -583,6 +583,13 @@ def splitgpkg(
         key, bbox = item
         try:
             name = file_pattern % key
+            zipfile_name = f"{name}.zip"
+            
+            # Check if the file already exists at destination
+            if file_handler.file_exists(file_handler.navigate(destination, zipfile_name)):
+                log.info("Skipping %s - already exists at destination", zipfile_name)
+                return None
+                
             log.debug("Generate gpkg %s", name)
             minx, miny, maxx, maxy = bbox
             bbox_geom = box(minx, miny, maxx, maxy)
