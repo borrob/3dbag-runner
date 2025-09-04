@@ -704,7 +704,7 @@ def main() -> None:
     runallroofertiles.add_argument("--filename", type=str, required=False, default="tile_{x}_{y}", help="Name of the tiles to generate")
     runallroofertiles.set_defaults(func=runallconfigtiles_operation)
 
-    runtyler = subparsers.add_parser("tyler")
+    runtyler = subparsers.add_parser("tyler", help="Convert CityJSON files to GLB format for visualization")
     runtyler.add_argument("--source", type=str, required=True, help="azure://source")
     runtyler.add_argument("--destination", type=str, required=True, help="azure://destination")
     runtyler.add_argument("--temporary_directory", type=Path, required=True, help="Directory for temporary files")
@@ -712,18 +712,18 @@ def main() -> None:
     runtyler.add_argument("--metadata_city_json", type=Path, required=True, help="Path to metadata.city.json")
     runtyler.set_defaults(func=tyler_operation)
 
-    createlazindex = subparsers.add_parser("createlazindex")
+    createlazindex = subparsers.add_parser("createlazindex", help="Create index file for LAZ point cloud files")
     createlazindex.add_argument("--destination", type=str, required=True, help="azure://destination")
     createlazindex.add_argument("--temporary_directory", type=str, required=True, help="Directory for temporary files")
     createlazindex.set_defaults(func=createlazindex_operation)
 
-    geluid = subparsers.add_parser("geluid")
+    geluid = subparsers.add_parser("geluid", help="Create 3D sound model geopackage from CityJSON files")
     geluid.add_argument("--source", type=str, required=True, help="azure://source")
     geluid.add_argument("--destination", type=str, required=True, help="azure://destination")
     geluid.add_argument("--temporary_directory", type=str, required=True, help="Directory for temporary files")
     geluid.set_defaults(func=geluid_operation)
 
-    hoogte = subparsers.add_parser("hoogte")
+    hoogte = subparsers.add_parser("hoogte", help="Create height model geopackage from CityJSON files")
     hoogte.add_argument("--source", type=str, required=True, help="azure://source")
     hoogte.add_argument("--destination", type=str, required=True, help="azure://destination")
     hoogte.add_argument("--temporary_directory", type=str, required=True, help="Directory for temporary files")
@@ -740,7 +740,7 @@ def main() -> None:
     trigger_pdok_update.add_argument("--expected_gpkg_name", type=str, required=True, help="PDOK always expects a certain name for the gpkg stored in the s3 bucket, for instance 3dgeluid.gpkg")
     trigger_pdok_update.set_defaults(func=trigger_pdok_update_operation)
 
-    splitgpkg = subparsers.add_parser("splitgpkg")
+    splitgpkg = subparsers.add_parser("splitgpkg", help="Split geopackage into tiles based on spatial index")
     splitgpkg.add_argument("--source", type=str, required=True, help="handle://source")
     splitgpkg.add_argument("--destination", type=str, required=True, help="handle://destination")
     splitgpkg.add_argument("--split_source", type=str, required=True, help="handle://splitsource.json")
