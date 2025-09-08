@@ -80,3 +80,6 @@ dev-setup: install-dev
 # Generate Argo workflows
 generate-workflows:
 	$(PYTHON) $(SRC_DIR)/argo.py
+
+apply-workflows:
+	$(PYTHON) $(SRC_DIR)/argo.py apply

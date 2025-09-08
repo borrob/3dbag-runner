@@ -1,9 +1,9 @@
-from typing import Callable, Literal, ParamSpec, Sequence, TypeVar, Unpack, cast
+from typing import Any, Callable, Literal, ParamSpec, Sequence, TypeVar, Unpack, cast
 from typing_extensions import TypedDict
 from pathlib import Path
 
 
-from hera.workflows import script, EmptyDirVolume, Artifact, SecretVolume
+from hera.workflows import script, EmptyDirVolume, Artifact, SecretVolume, WorkflowTemplate
 from hera.workflows.models.io.k8s.api.core.v1 import Toleration, ResourceRequirements, Affinity, NodeAffinity, NodeSelector, NodeSelectorTerm, NodeSelectorRequirement
 from hera.workflows.models.io.k8s.apimachinery.pkg.api.resource import Quantity
 from hera.workflows.models.io.argoproj.workflow.v1alpha1 import RetryStrategy
@@ -138,3 +138,45 @@ def default_worker(**custom_kwargs: Unpack[_ScriptKwargs]) -> Callable[[Callable
         }
         return script(**merged_kwargs)(func)
     return decorator
+
+
+def get_workflow_template(module_name: str, **kwargs: Any) -> WorkflowTemplate:
+    """
+    Create a WorkflowTemplate with default configuration based on module name.
+
+    Args:
+        module_name: The name of the module (e.g., 'ingest_createbagdb', 'process_tiles', etc.)
+        **kwargs: Additional parameters to override defaults
+
+    Returns:
+        WorkflowTemplate: Configured workflow template
+    """
+    from pathlib import Path
+
+    # Replace underscores with hyphens for k8s compatibility
+    workflow_name = module_name.replace('_', '-')
+
+    # Read image pull secrets from .default_image file
+    image_file = Path(__file__).parent.parent.parent / '.default_image'
+    image_pull_secrets = "acrdddprodman"  # default fallback
+
+    if image_file.exists():
+        with open(image_file, 'r') as f:
+            f.read().strip()
+            # Extract image pull secrets from the content if needed
+            # For now, using the default but this can be customized based on file format
+            image_pull_secrets = "acrdddprodman"
+
+    # Default configuration
+    default_config: dict[str, Any] = {
+        "name": workflow_name,
+        "generate_name": f"{workflow_name}-",
+        "namespace": "argo",
+        "service_account_name": "workflow-runner",
+        "image_pull_secrets": image_pull_secrets
+    }
+
+    # Merge with any overrides
+    config = {**default_config, **kwargs}
+
+    return WorkflowTemplate(**config)

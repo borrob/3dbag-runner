@@ -1,5 +1,5 @@
-from hera.workflows import DAG, WorkflowTemplate, Script, EmptyDirVolume, SecretVolume
-from argo.argodefaults import argo_worker
+from hera.workflows import DAG, Script, EmptyDirVolume, SecretVolume
+from argo.argodefaults import argo_worker, get_workflow_template
 from roofhelper.pdok.PdokGeopackageWriter import write_features_to_geopackage
 
 
@@ -77,16 +77,12 @@ def pdok_workflow_func() -> None:
 
 
 def generate_workflow() -> None:
-    with WorkflowTemplate(name="pdokupdategebouw",
-                          generate_name="pdokupdategebouw-",
-                          entrypoint="pdokupdategebouwdag",
-                          namespace="argo",
-                          service_account_name="workflow-runner",
-                          image_pull_secrets="acrdddprodman") as w:
+    with get_workflow_template(__name__.split('.')[-1],
+                               entrypoint="pdokupdategebouwdag") as w:
         with DAG(name="pdokupdategebouwdag"):
             workflow: Script = pdok_workflow_func()  # type: ignore   # noqa: F841
 
-        with open("generated/pdokupdategebouw.yaml", "w") as f:
+        with open(f"generated/{w.name}.yaml", "w") as f:
             w.to_yaml(f)
 
 

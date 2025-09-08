@@ -1,7 +1,7 @@
-from hera.workflows import Artifact, DAG, WorkflowTemplate, Parameter, Script
+from hera.workflows import Artifact, DAG, Parameter, Script
 from hera.workflows.models.io.argoproj.workflow.v1alpha1 import RetryStrategy
 
-from argo.argodefaults import argo_worker, MEMORY_EMPTY_DIR
+from argo.argodefaults import argo_worker, MEMORY_EMPTY_DIR, get_workflow_template
 
 # Create a list to store the futures
 
@@ -95,21 +95,17 @@ def workerfunc(workerid: int, footprints: str, year: int, dsm: str, ahn4: str, a
 
 
 def generate_workflow() -> None:
-    with WorkflowTemplate(name="roofer",
-                          generate_name="roofer-",
-                          entrypoint="rooferdag",
-                          namespace="argo",
-                          service_account_name="workflow-runner",
-                          image_pull_secrets="acrdddprodman",
-                          arguments=[
-                              Parameter(name="footprints", default="azure://<sas>"),
-                              Parameter(name="year", default="2022"),
-                              Parameter(name="dsm", default="azure://<sas>"),
-                              Parameter(name="ahn4", default="azure://<sas>"),
-                              Parameter(name="ahn3", default="azure://<sas>"),
-                              Parameter(name="destination", default="azure://<sas>"),
-                              Parameter(name="workercount", default="1")
-                          ]) as w:
+    with get_workflow_template(__name__.split('.')[-1],
+                               entrypoint="rooferdag",
+                               arguments=[
+                                   Parameter(name="footprints", default="azure://<sas>"),
+                                   Parameter(name="year", default="2022"),
+                                   Parameter(name="dsm", default="azure://<sas>"),
+                                   Parameter(name="ahn4", default="azure://<sas>"),
+                                   Parameter(name="ahn3", default="azure://<sas>"),
+                                   Parameter(name="destination", default="azure://<sas>"),
+                                   Parameter(name="workercount", default="1")
+    ]) as w:
         with DAG(name="rooferdag"):
             queue: Script = queuefunc(arguments={"workercount": w.get_parameter("workercount"),  # type: ignore
                                                  "footprints": w.get_parameter("footprints"),
@@ -123,7 +119,7 @@ def generate_workflow() -> None:
                                                                     "ahn3": w.get_parameter("ahn3")}])  # type: ignore
             queue >> worker  # type: ignore
 
-        with open("generated/roofer.yaml", "w") as f:
+        with open(f"generated/{w.name}.yaml", "w") as f:
             w.to_yaml(f)
 
 

@@ -1,5 +1,5 @@
-from hera.workflows import Artifact, DAG, WorkflowTemplate, Script, Parameter
-from argo.argodefaults import argo_worker, MEMORY_EMPTY_DIR
+from hera.workflows import Artifact, DAG, Script, Parameter
+from argo.argodefaults import argo_worker, MEMORY_EMPTY_DIR, get_workflow_template
 
 # Create a list to store the futures
 
@@ -162,17 +162,13 @@ def mergerfunc(intermediate: str, destination: str) -> None:
 
 
 def generate_workflow() -> None:
-    with WorkflowTemplate(name="tyler",
-                          generate_name="tyler-",
-                          entrypoint="tylerdag",
-                          namespace="argo",
-                          service_account_name="workflow-runner",
-                          image_pull_secrets="acrdddprodman",
-                          arguments=[Parameter(name="source", default="azure://<sas>"),
-                                     Parameter(name="intermediate", default="azure://<sas>"),
-                                     Parameter(name="destination", default="azure://<sas>"),
-                                     Parameter(name="mode", default="buildings", enum=["buildings", "terrain"]),
-                                     Parameter(name="workercount", default="5")]) as w:
+    with get_workflow_template(__name__.split('.')[-1],
+                               entrypoint="tylerdag",
+                               arguments=[Parameter(name="source", default="azure://<sas>"),
+                                          Parameter(name="intermediate", default="azure://<sas>"),
+                                          Parameter(name="destination", default="azure://<sas>"),
+                                          Parameter(name="mode", default="buildings", enum=["buildings", "terrain"]),
+                                          Parameter(name="workercount", default="5")]) as w:
         with DAG(name="tylerdag"):
             queue: Script = queuefunc(arguments={  # type: ignore
                 "workercount": w.get_parameter("workercount"),
@@ -186,7 +182,7 @@ def generate_workflow() -> None:
                                         "destination": w.get_parameter("destination")})  # type: ignore
             queue >> worker >> merger  # type: ignore
 
-        with open("generated/tyler.yaml", "w") as f:
+        with open(f"generated/{w.name}.yaml", "w") as f:
             w.to_yaml(f)
 
 

@@ -1,5 +1,5 @@
-from hera.workflows import DAG, WorkflowTemplate, Parameter, Script
-from argo.argodefaults import default_worker
+from hera.workflows import DAG, Parameter, Script
+from argo.argodefaults import default_worker, get_workflow_template
 
 
 @default_worker()
@@ -68,19 +68,15 @@ def workerfunc(input: str) -> None:
 
 
 def generate_workflow() -> None:
-    with WorkflowTemplate(name="validatecityjson",
-                          generate_name="validatecityjson-",
-                          entrypoint="maindag",
-                          namespace="argo",
-                          service_account_name="workflow-runner",
-                          image_pull_secrets="acrdddprodman",
-                          arguments=[
-                              Parameter(name="input", default="azure://<sas>")
-                          ]) as w:
+    with get_workflow_template(__name__.split('.')[-1],
+                               entrypoint="maindag",
+                               arguments=[
+                                   Parameter(name="input", default="azure://<sas>")
+    ]) as w:
         with DAG(name="maindag"):
             worker: Script = workerfunc(arguments={"input": w.get_parameter("input")})  # type: ignore   # noqa: F841
 
-        with open("generated/validatecityjson.yaml", "w") as f:
+        with open(f"generated/{w.name}.yaml", "w") as f:
             w.to_yaml(f)
 
 
