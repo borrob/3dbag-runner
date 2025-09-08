@@ -79,16 +79,4 @@ dev-setup: install-dev
 
 # Generate Argo workflows
 generate-workflows:
-	$(PYTHON) $(SRC_DIR)/argo/createbagdb.py
-	$(PYTHON) $(SRC_DIR)/argo/dump.py
-	$(PYTHON) $(SRC_DIR)/argo/fixcityjson.py
-	$(PYTHON) $(SRC_DIR)/argo/geluid.py
-	$(PYTHON) $(SRC_DIR)/argo/height.py
-	$(PYTHON) $(SRC_DIR)/argo/lazdb.py
-	$(PYTHON) $(SRC_DIR)/argo/lazsplit.py
-	$(PYTHON) $(SRC_DIR)/argo/pdokupdatebuildings.py
-	$(PYTHON) $(SRC_DIR)/argo/pdokupdategeluid.py
-	$(PYTHON) $(SRC_DIR)/argo/roofer.py
-	$(PYTHON) $(SRC_DIR)/argo/tyler.py
-	$(PYTHON) $(SRC_DIR)/argo/validatecityjson.py
-	$(PYTHON) $(SRC_DIR)/remove_buildings.py
+	$(PYTHON) $(SRC_DIR)/argo.py
