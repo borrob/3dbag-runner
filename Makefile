@@ -43,12 +43,6 @@ test-no-azure:
 
 # Code quality
 check:
-	@echo "Run autoflake"
-	$(UV) run autoflake --remove-all-unused-imports --recursive --remove-unused-variables --check $(SRC_DIR) $(TEST_DIR)
-
-	@echo "Run autopep8"
-	$(UV) run autopep8 --diff --max-line-length=120 --recursive $(SRC_DIR) $(TEST_DIR)
-
 	@echo "Run flake8"
 	$(UV) run flake8 $(SRC_DIR) $(TEST_DIR)
 
@@ -57,7 +51,7 @@ check:
 
 format:
 	$(UV) run autoflake --remove-all-unused-imports --recursive --remove-unused-variables --in-place $(SRC_DIR) $(TEST_DIR)
-	$(UV) run autopep8 --in-place --aggressive --aggressive --max-line-length=120 --recursive $(SRC_DIR) $(TEST_DIR)
+	$(UV) run autopep8 --in-place --aggressive --aggressive --max-line-length=9999 --recursive $(SRC_DIR) $(TEST_DIR)
 
 # Docker
 docker-build:

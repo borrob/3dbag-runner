@@ -55,8 +55,6 @@ def _extract_ahn_key_from_filename(filename: str) -> Optional[str]:
     Extracts AHN key from filename, supporting both legacy and new formats.
     Returns the key that can be used to look up geometry.
     """
-    basename = os.path.basename(filename)
-
     # Try new format first: <name>_<year>_<x>_<y>
     coords = _extract_coordinates_from_new_format(filename)
     if coords:
@@ -85,22 +83,21 @@ def _extract_coordinates_from_new_format(filename: str) -> Optional[tuple[int, i
 def _create_geometry_from_coordinates(x: int, y: int, tile_size_meters: int = 2000) -> Polygon:
     """
     Create proper bounding box geometry for tile based on coordinates and tile size.
-    
+
     Args:
         x: X coordinate (in km units)
-        y: Y coordinate (in km units) 
+        y: Y coordinate (in km units)
         tile_size_meters: Size of tile in meters (default 2000m for 2x2km)
-    
+
     Returns:
         Polygon representing the bounding box of the tile
     """
-
 
     # Create bounding box polygon: bottom-left to top-right
     return Polygon([
         (x, y),                                    # bottom-left
         (x + tile_size_meters, y),                 # bottom-right
-        (x + tile_size_meters, y + tile_size_meters), # top-right
+        (x + tile_size_meters, y + tile_size_meters),  # top-right
         (x, y + tile_size_meters),                 # top-left
         (x, y)                                     # close polygon
     ])
@@ -120,12 +117,7 @@ def _create_dsm_geometry(x: int, y: int) -> Polygon:
     if str(y)[-3] in ('2', '7'):
         y = y + 50
 
-    return Polygon([
-        (x, y),
-        (x, y + dsm_grid_size),
-        (x + dsm_grid_size, y + dsm_grid_size),
-        (x + dsm_grid_size, y)
-    ])
+    return _create_geometry_from_coordinates(x, y, dsm_grid_size)
 
 
 def _process_dsm_layers(file_handler: SchemeFileHandler, source_uri: str, download_url_prefix: str) -> Dict[str, List[FeatureWithGeometry]]:
@@ -377,26 +369,26 @@ def get_pdok_building_features(source_uri: str, ahn_json_path: Path, download_ur
     file_handler = SchemeFileHandler()
 
     # Process DSM layers
-    dsm_features: dict[str, list[FeatureWithGeometry]] = _process_dsm_layers(file_handler, source_uri, download_url_prefix)
-    
+    dsm_features = _process_dsm_layers(file_handler, source_uri, download_url_prefix)
+
     # Log DSM feature counts
     for layer_key, features in dsm_features.items():
         log.info(f"DSM layer '{layer_key}': {len(features)} features")
 
     # Process 3D layers
     ahn_3d_features = _process_3d_layers(file_handler, source_uri, ahn_json_path, download_url_prefix)
-    
+
     # Log 3D feature counts
     for layer_key, features in ahn_3d_features.items():
         log.info(f"3D layer '{layer_key}': {len(features)} features")
 
     # Combine results - properly merge dictionaries by combining lists for overlapping keys
     features_by_type: Dict[str, List[FeatureWithGeometry]] = {}
-    
+
     # Add DSM features
     for layer_key, features in dsm_features.items():
         features_by_type[layer_key] = features.copy()
-    
+
     # Add 3D features, combining with existing if key already exists
     for layer_key, features in ahn_3d_features.items():
         if layer_key in features_by_type:
