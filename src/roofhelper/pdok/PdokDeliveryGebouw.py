@@ -275,7 +275,7 @@ def _process_3d_layers(file_handler: SchemeFileHandler, source_uri: str, ahn_jso
 
             # Dynamically discover layer directories
             layer_directories = []
-            for entry in year_entries: # only process these layers if discovered.
+            for entry in year_entries:  # only process these layers if discovered.
                 if entry.is_directory and entry.name in ["volledig", "hoogtestatistieken", "gebouwen"]:
                     layer_directories.append(entry.name)
 
