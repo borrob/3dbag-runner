@@ -85,8 +85,8 @@ def _create_geometry_from_coordinates(x: int, y: int, tile_size_meters: int = 20
     Create proper bounding box geometry for tile based on coordinates and tile size.
 
     Args:
-        x: X coordinate (in km units)
-        y: Y coordinate (in km units)
+        x: X coordinate (in meters)
+        y: Y coordinate (in meters)
         tile_size_meters: Size of tile in meters (default 2000m for 2x2km)
 
     Returns:
@@ -262,8 +262,8 @@ def _process_3d_layers(file_handler: SchemeFileHandler, source_uri: str, ahn_jso
 
     features_by_type: Dict[str, List[FeatureWithGeometry]] = {}
 
-    # Process each year directory
-    for year in [x for x in year_directories if x > 2021]:
+    # Process each year directory, must be from 2018 or later
+    for year in [x for x in year_directories if x >= 2018]:
         year_uri = file_handler.navigate(source_uri, str(year))
 
         try:
@@ -275,8 +275,8 @@ def _process_3d_layers(file_handler: SchemeFileHandler, source_uri: str, ahn_jso
 
             # Dynamically discover layer directories
             layer_directories = []
-            for entry in year_entries:
-                if entry.is_directory:
+            for entry in year_entries: # only process these layers if discovered.
+                if entry.is_directory and entry.name in ["volledig", "hoogtestatistieken", "gebouwen"]:
                     layer_directories.append(entry.name)
 
             log.info(f"Found layer directories for year {year}: {layer_directories}")
