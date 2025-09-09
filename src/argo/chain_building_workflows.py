@@ -1,6 +1,38 @@
 from hera.workflows import Step, Steps, Parameter
 from hera.workflows.models import TemplateRef
-from argo.argodefaults import get_workflow_template
+from argo.argodefaults import get_workflow_template, argo_worker
+
+
+@argo_worker()
+def generate_parameters(folder: str, year: str) -> None:
+    import json
+    import sys
+    import logging
+    from roofhelper.io import SchemeFileHandler
+    from roofhelper.defaultlogging import setup_logging
+
+    logger = setup_logging(logging.INFO)
+
+    # Parse the folder URI to determine the scheme
+    handler = SchemeFileHandler()
+
+    # Generate all the paths using the appropriate navigate function
+    parameters = {
+        "footprints": handler.navigate(folder, f"{year}/bag{year}.gpkg"),
+        "cityjson_destination": handler.navigate(folder, f"{year}/cityjsonraw"),
+        "validation_input": handler.navigate(folder, f"{year}/cityjsonraw"),
+        "validation_output": handler.navigate(folder, f"{year}/cityjson"),
+        "height_source": handler.navigate(folder, f"{year}/cityjson"),
+        "height_destination": handler.navigate(folder, f"{year}/hoogte/hoogte{year}.gpkg"),
+        "geluid_source": handler.navigate(folder, f"{year}/cityjson"),
+        "geluid_destination": handler.navigate(folder, f"{year}/geluid/geluid{year}.gpkg"),
+        "tyler_source": handler.navigate(folder, f"{year}/cityjson"),
+        "tyler_intermediate": handler.navigate(folder, f"{year}/intermediate"),
+        "tyler_destination": handler.navigate(folder, f"{year}/tyler")
+    }
+
+    logger.info(f"Generated parameters: {json.dumps(parameters, indent=2)}")
+    json.dump(parameters, sys.stdout)
 
 
 def generate_workflow() -> None:
@@ -14,42 +46,24 @@ def generate_workflow() -> None:
     with get_workflow_template(__name__.split('.')[-1],
                                entrypoint="chain-steps",
                                arguments=[
-                                   # Parameters for ingest_createbagdb
-                                   Parameter(name="destination", default="azure://https://storageaccount.blob.core.windows.net/container?<sas>"),
+                                   # Base parameters
+                                   Parameter(name="folder", default="azure://<sas>"),
                                    Parameter(name="year", default="2021"),
 
-                                   # Parameters for prepare_indexlazfiles
-                                   Parameter(name="lazfiles_destination", default="azure://https://storageaccount.blob.core.windows.net/container/path?<sas>"),
-
-                                   # Parameters for transform_roofer
-                                   Parameter(name="footprints", default="azure://<sas>"),
+                                   # Point cloud data sources
                                    Parameter(name="dsm", default="azure://<sas>"),
-                                   Parameter(name="ahn4", default="azure://<sas>"),
                                    Parameter(name="ahn3", default="azure://<sas>"),
-                                   Parameter(name="cityjson_destination", default="azure://<sas>"),
-                                   Parameter(name="worker_count", default="5"),
-
-                                   # Parameters for validate_fixcityjson
-                                   Parameter(name="validation_input", default="azure://<sas>"),
-                                   Parameter(name="validation_output", default="azure://<sas>"),
-
-                                   # Parameters for transform_height
-                                   Parameter(name="height_source", default="azure://<sas>"),
-                                   Parameter(name="height_destination", default="azure://<sas>"),
-
-                                   # Parameters for transform_geluid
-                                   Parameter(name="geluid_source", default="azure://<sas>"),
-                                   Parameter(name="geluid_destination", default="azure://<sas>"),
-
-                                   # Parameters for transform_tyler
-                                   Parameter(name="tyler_source", default="azure://<sas>"),
-                                   Parameter(name="tyler_intermediate", default="azure://<sas>"),
-                                   Parameter(name="tyler_destination", default="azure://<sas>"),
-                                   Parameter(name="tyler_mode", default="buildings", enum=["buildings", "terrain"])
+                                   Parameter(name="ahn4", default="azure://<sas>")
     ]) as w:
 
         with Steps(name="chain-steps") as s:
-            # Step 1: Run ingest_createbagdb and prepare_indexlazfiles in parallel
+            # Step 0: Generate parameters based on folder and year
+            generate_parameters(arguments={  # type: ignore
+                "folder": w.get_parameter("folder"),
+                "year": w.get_parameter("year")
+            })
+
+            # Step 1: Run ingest_createbagdb and prepare_indexlazfiles (3x) in parallel
             with s.parallel():
                 Step(
                     name="ingest-createbagdb",
@@ -59,20 +73,44 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "destination": w.get_parameter("destination"),
+                        "destination": w.get_parameter("folder"),
                         "year": w.get_parameter("year")
                     }
                 )
 
                 Step(
-                    name="prepare-indexlazfiles",
+                    name="prepare-indexlazfiles-dsm",
                     template_ref=TemplateRef(
                         name="prepare-indexlazfiles",
                         template="pointclouddbdag",
                         cluster_scope=False
                     ),
                     arguments={
-                        "destination": w.get_parameter("lazfiles_destination")
+                        "destination": w.get_parameter("dsm")
+                    }
+                )
+
+                Step(
+                    name="prepare-indexlazfiles-ahn3",
+                    template_ref=TemplateRef(
+                        name="prepare-indexlazfiles",
+                        template="pointclouddbdag",
+                        cluster_scope=False
+                    ),
+                    arguments={
+                        "destination": w.get_parameter("ahn3")
+                    }
+                )
+
+                Step(
+                    name="prepare-indexlazfiles-ahn4",
+                    template_ref=TemplateRef(
+                        name="prepare-indexlazfiles",
+                        template="pointclouddbdag",
+                        cluster_scope=False
+                    ),
+                    arguments={
+                        "destination": w.get_parameter("ahn4")
                     }
                 )
 
@@ -85,13 +123,13 @@ def generate_workflow() -> None:
                     cluster_scope=False
                 ),
                 arguments={
-                    "footprints": w.get_parameter("footprints"),
+                    "footprints": "{{steps.param-gen.outputs.result.footprints}}",
                     "year": w.get_parameter("year"),
                     "dsm": w.get_parameter("dsm"),
                     "ahn4": w.get_parameter("ahn4"),
                     "ahn3": w.get_parameter("ahn3"),
-                    "destination": w.get_parameter("cityjson_destination"),
-                    "workercount": w.get_parameter("worker_count")
+                    "destination": "{{steps.param-gen.outputs.result.cityjson_destination}}",
+                    "workercount": "5"
                 }
             )
 
@@ -104,8 +142,8 @@ def generate_workflow() -> None:
                     cluster_scope=False
                 ),
                 arguments={
-                    "input": w.get_parameter("validation_input"),
-                    "output": w.get_parameter("validation_output")
+                    "input": "{{steps.param-gen.outputs.result.validation_input}}",
+                    "output": "{{steps.param-gen.outputs.result.validation_output}}"
                 }
             )
 
@@ -119,8 +157,8 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": w.get_parameter("height_source"),
-                        "destination": w.get_parameter("height_destination")
+                        "source": "{{steps.param-gen.outputs.result.height_source}}",
+                        "destination": "{{steps.param-gen.outputs.result.height_destination}}"
                     }
                 )
 
@@ -132,8 +170,8 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": w.get_parameter("geluid_source"),
-                        "destination": w.get_parameter("geluid_destination")
+                        "source": "{{steps.param-gen.outputs.result.geluid_source}}",
+                        "destination": "{{steps.param-gen.outputs.result.geluid_destination}}"
                     }
                 )
 
@@ -145,11 +183,11 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": w.get_parameter("tyler_source"),
-                        "intermediate": w.get_parameter("tyler_intermediate"),
-                        "destination": w.get_parameter("tyler_destination"),
-                        "mode": w.get_parameter("tyler_mode"),
-                        "workercount": w.get_parameter("worker_count")
+                        "source": "{{steps.param-gen.outputs.result.tyler_source}}",
+                        "intermediate": "{{steps.param-gen.outputs.result.tyler_intermediate}}",
+                        "destination": "{{steps.param-gen.outputs.result.tyler_destination}}",
+                        "mode": "buildings",
+                        "workercount": "5"
                     }
                 )
 

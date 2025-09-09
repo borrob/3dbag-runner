@@ -115,7 +115,7 @@ def workerfunc(workerid: int, mode: str, intermediate: str) -> None:
     os.makedirs("/workflow/zips")
     with ThreadPoolExecutor(max_workers=1) as executor:
         folders = [f for f in glob.glob("/workflow/partitions/*") if os.path.isdir(f)]
-        futures = [executor.submit(_runtyler, idx, work, len(folders)) for idx, work in enumerate(folders)]
+        futures = [executor.submit(_runtyler, idx, work, len(folders) - 1) for idx, work in enumerate(folders)]
         for future in futures:
             future.result()
 
