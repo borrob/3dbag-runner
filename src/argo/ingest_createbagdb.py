@@ -29,10 +29,17 @@ def workerfunc(destination: str, year: int) -> None:
 def generate_workflow() -> None:
     with get_workflow_template(__name__.split('.')[-1],
                                entrypoint="createbagdbdag",
-                               arguments=[Parameter(name="destination", default="azure://https://storageaccount.blob.core.windows.net/container?<sas>"),
-                                          Parameter(name="year", default="2021")]) as w:
-        with DAG(name="createbagdbdag"):
-            queue: Script = workerfunc(arguments={"destination": w.get_parameter("destination"), "year": w.get_parameter("year")})  # type: ignore  # noqa: F841
+                               arguments=[
+                                   Parameter(name="destination", default="azure://https://storageaccount.blob.core.windows.net/container?<sas>"),
+                                   Parameter(name="year", default="2021")
+    ]) as w:
+        # Expose parameters as DAG inputs so tasks use {{inputs.parameters.*}} making template reusable via TemplateRef
+        with DAG(name="createbagdbdag", inputs=[Parameter(name="destination"), Parameter(name="year")]):
+            # Use template input variables instead of workflow.parameters.*
+            queue: Script = workerfunc(arguments={  # type: ignore  # noqa: F841
+                "destination": "{{inputs.parameters.destination}}",
+                "year": "{{inputs.parameters.year}}"
+            })  # type: ignore
 
         with open(f"generated/{w.name}.yaml", "w") as f:
             w.to_yaml(f)

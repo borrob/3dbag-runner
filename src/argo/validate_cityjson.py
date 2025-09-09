@@ -10,7 +10,6 @@ def workerfunc(input: str) -> None:
     from pathlib import Path
     from roofhelper.io import SchemeFileHandler
     from concurrent.futures import ThreadPoolExecutor, as_completed
-
     from roofhelper.defaultlogging import setup_logging
 
     log = setup_logging(logging.INFO)
@@ -27,11 +26,6 @@ def workerfunc(input: str) -> None:
         "status",
         "tijdstipRegistratieLV",
         "tijdstipEindRegistratieLV",
-        # "kwaliteits_klasse",
-        # "pw_actueel",
-        # "pw_bron",
-        # "reconstructie_methode",
-        # "lod",
         "rf_roof_elevation_50p",
         "rf_roof_elevation_70p",
         "rf_roof_elevation_min",
@@ -56,7 +50,6 @@ def workerfunc(input: str) -> None:
         log.info(f"Validate {uri}")
         data = json.loads(city_json)
 
-        # Sanitize elevations
         check_file(data, name)
 
     files = (entry for entry in handler.list_entries_shallow(input, regex="(?i)^.*city\\.json$") if entry.is_file)
@@ -73,8 +66,8 @@ def generate_workflow() -> None:
                                arguments=[
                                    Parameter(name="input", default="azure://<sas>")
     ]) as w:
-        with DAG(name="maindag"):
-            worker: Script = workerfunc(arguments={"input": w.get_parameter("input")})  # type: ignore   # noqa: F841
+        with DAG(name="maindag", inputs=[Parameter(name="input")]):
+            worker: Script = workerfunc(arguments={"input": "{{inputs.parameters.input}}"})  # type: ignore   # noqa: F841
 
         with open(f"generated/{w.name}.yaml", "w") as f:
             w.to_yaml(f)

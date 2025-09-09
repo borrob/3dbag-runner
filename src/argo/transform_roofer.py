@@ -106,17 +106,27 @@ def generate_workflow() -> None:
                                    Parameter(name="destination", default="azure://<sas>"),
                                    Parameter(name="workercount", default="1")
     ]) as w:
-        with DAG(name="rooferdag"):
-            queue: Script = queuefunc(arguments={"workercount": w.get_parameter("workercount"),  # type: ignore
-                                                 "footprints": w.get_parameter("footprints"),
-                                                 "cityjsonfolder": w.get_parameter("destination"),
-                                                 "year": w.get_parameter("year")})  # type: ignore
-            worker = workerfunc(with_param=queue.result, arguments=[queue.get_artifact("queue").with_name("queue"), {"workerid": "{{item}}",  # type: ignore
-                                                                    "footprints": w.get_parameter("footprints"),
-                                                                    "year": w.get_parameter("year"),
-                                                                    "dsm": w.get_parameter("dsm"),
-                                                                    "ahn4": w.get_parameter("ahn4"),
-                                                                    "ahn3": w.get_parameter("ahn3")}])  # type: ignore
+        with DAG(name="rooferdag", inputs=[
+            Parameter(name="footprints"),
+            Parameter(name="year"),
+            Parameter(name="dsm"),
+            Parameter(name="ahn4"),
+            Parameter(name="ahn3"),
+            Parameter(name="destination"),
+            Parameter(name="workercount")
+        ]):
+            queue: Script = queuefunc(arguments={  # type: ignore
+                "workercount": "{{inputs.parameters.workercount}}",
+                "footprints": "{{inputs.parameters.footprints}}",
+                "cityjsonfolder": "{{inputs.parameters.destination}}",
+                "year": "{{inputs.parameters.year}}"})  # type: ignore
+            worker = workerfunc(with_param=queue.result, arguments=[queue.get_artifact("queue").with_name("queue"), {  # type: ignore
+                                                                    "workerid": "{{item}}",
+                                                                    "footprints": "{{inputs.parameters.footprints}}",
+                                                                    "year": "{{inputs.parameters.year}}",
+                                                                    "dsm": "{{inputs.parameters.dsm}}",
+                                                                    "ahn4": "{{inputs.parameters.ahn4}}",
+                                                                    "ahn3": "{{inputs.parameters.ahn3}}"}])  # type: ignore
             queue >> worker  # type: ignore
 
         with open(f"generated/{w.name}.yaml", "w") as f:

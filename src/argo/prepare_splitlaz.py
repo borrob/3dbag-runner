@@ -17,10 +17,10 @@ def generate_workflow() -> None:
                                    Parameter(name="destination", default="https://storageaccount.blob.core.windows.net/container/output?<sas>"),
                                    Parameter(name="grid-size", default="250"),
     ]) as w:
-        with DAG(name="maindag"):
-            worker: Script = workerfunc(arguments={"source": w.get_parameter("source"),  # type: ignore  # noqa: F841
-                                                   "destination": w.get_parameter("destination"),
-                                                   "gridsize": w.get_parameter("grid-size")})  # type: ignore
+        with DAG(name="maindag", inputs=[Parameter(name="source"), Parameter(name="destination"), Parameter(name="grid-size")]):
+            worker: Script = workerfunc(arguments={"source": "{{inputs.parameters.source}}",  # type: ignore  # noqa: F841
+                                                   "destination": "{{inputs.parameters.destination}}",
+                                                   "gridsize": "{{inputs.parameters.grid-size}}"})  # type: ignore
 
         with open(f"generated/{w.name}.yaml", "w") as f:
             w.to_yaml(f)

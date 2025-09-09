@@ -101,9 +101,9 @@ def generate_workflow() -> None:
                                    Parameter(name="input", default="azure://<sas>"),
                                    Parameter(name="output", default="azure://<sas>"),
     ]) as w:
-        with DAG(name="maindag"):
-            worker: Script = workerfunc(arguments={"input": w.get_parameter("input"),  # type: ignore  # noqa: F841
-                                                   "output": w.get_parameter("output")})  # type: ignore
+        with DAG(name="maindag", inputs=[Parameter(name="input"), Parameter(name="output")]):
+            worker: Script = workerfunc(arguments={"input": "{{inputs.parameters.input}}",  # type: ignore  # noqa: F841
+                                                   "output": "{{inputs.parameters.output}}"})  # type: ignore
 
         with open(f"generated/{w.name}.yaml", "w") as f:
             w.to_yaml(f)

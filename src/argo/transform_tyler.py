@@ -169,17 +169,24 @@ def generate_workflow() -> None:
                                           Parameter(name="destination", default="azure://<sas>"),
                                           Parameter(name="mode", default="buildings", enum=["buildings", "terrain"]),
                                           Parameter(name="workercount", default="5")]) as w:
-        with DAG(name="tylerdag"):
+        with DAG(name="tylerdag", inputs=[
+            Parameter(name="source"),
+            Parameter(name="intermediate"),
+            Parameter(name="destination"),
+            Parameter(name="mode"),
+            Parameter(name="workercount"),
+        ]):
             queue: Script = queuefunc(arguments={  # type: ignore
-                "workercount": w.get_parameter("workercount"),
-                "source": w.get_parameter("source")})  # type: ignore
+                "workercount": "{{inputs.parameters.workercount}}",
+                "source": "{{inputs.parameters.source}}"})  # type: ignore
 
             worker: Script = workerfunc(with_param=queue.result,  # type: ignore
-                                        arguments=[queue.get_artifact("queue").with_name("queue"), {"workerid": "{{item}}",  # type: ignore
-                                                                                                    "mode": w.get_parameter("mode"),
-                                                                                                    "intermediate": w.get_parameter("intermediate")}])  # type: ignore
-            merger: Script = mergerfunc(arguments={"intermediate": w.get_parameter("intermediate"),  # type: ignore
-                                        "destination": w.get_parameter("destination")})  # type: ignore
+                                        arguments=[queue.get_artifact("queue").with_name("queue"), {  # type: ignore
+                                            "workerid": "{{item}}",
+                                            "mode": "{{inputs.parameters.mode}}",
+                                            "intermediate": "{{inputs.parameters.intermediate}}"}])  # type: ignore
+            merger: Script = mergerfunc(arguments={"intermediate": "{{inputs.parameters.intermediate}}",  # type: ignore
+                                        "destination": "{{inputs.parameters.destination}}"})  # type: ignore
             queue >> worker >> merger  # type: ignore
 
         with open(f"generated/{w.name}.yaml", "w") as f:

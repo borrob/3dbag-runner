@@ -16,10 +16,10 @@ def generate_workflow() -> None:
                                entrypoint="heightdag",
                                arguments=[Parameter(name="source", default="azure://<sas>"),
                                           Parameter(name="destination", default="azure://<sas>")]) as w:
-        with DAG(name="heightdag"):
+        with DAG(name="heightdag", inputs=[Parameter(name="source"), Parameter(name="destination")]):
             queue: Script = workerfunc(arguments={  # type: ignore   # noqa: F841
-                "source": w.get_parameter("source"),
-                "destination": w.get_parameter("destination")
+                "source": "{{inputs.parameters.source}}",
+                "destination": "{{inputs.parameters.destination}}"
             })  # type: ignore
 
         with open(f"generated/{w.name}.yaml", "w") as f:

@@ -14,8 +14,9 @@ def generate_workflow() -> None:
     with get_workflow_template(__name__.split('.')[-1],
                                entrypoint="pointclouddbdag",
                                arguments=[Parameter(name="destination", default="azure://https://storageaccount.blob.core.windows.net/container/path?<sas>")]) as w:
-        with DAG(name="pointclouddbdag"):
-            queue: Script = workfunc(arguments={"destination": w.get_parameter("destination")})  # type: ignore   # noqa: F841
+        # Expose for templateRef reuse
+        with DAG(name="pointclouddbdag", inputs=[Parameter(name="destination")]):
+            queue: Script = workfunc(arguments={"destination": "{{inputs.parameters.destination}}"})  # type: ignore   # noqa: F841
 
         with open(f"generated/{w.name}.yaml", "w") as f:
             w.to_yaml(f)

@@ -1,6 +1,7 @@
 from hera.workflows import Step, Steps, Parameter
 from hera.workflows.models import TemplateRef
 from argo.argodefaults import get_workflow_template, argo_worker
+from typing import Any  # added for mypy suppression
 
 
 @argo_worker()
@@ -60,8 +61,7 @@ def generate_workflow() -> None:
     ]) as w:
 
         with Steps(name="chain-steps") as s:
-            # Step 0: Generate parameters based on folder and year
-            generate_parameters(arguments={  # type: ignore
+            params_step: Any = generate_parameters(arguments={  # type: ignore
                 "folder": w.get_parameter("folder"),
                 "year": w.get_parameter("year")
             })
@@ -76,7 +76,7 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "destination": w.get_parameter("folder"),
+                        "destination": "{{steps.%s.outputs.result.footprints}}" % params_step.name,
                         "year": w.get_parameter("year")
                     }
                 )
@@ -126,12 +126,12 @@ def generate_workflow() -> None:
                     cluster_scope=False
                 ),
                 arguments={
-                    "footprints": "{{steps.param-gen.outputs.result.footprints}}",
+                    "footprints": "{{steps.%s.outputs.result.footprints}}" % params_step.name,
                     "year": w.get_parameter("year"),
                     "dsm": w.get_parameter("dsm"),
                     "ahn4": w.get_parameter("ahn4"),
                     "ahn3": w.get_parameter("ahn3"),
-                    "destination": "{{steps.param-gen.outputs.result.cityjson_destination}}",
+                    "destination": "{{steps.%s.outputs.result.cityjson_destination}}" % params_step.name,
                     "workercount": "5"
                 }
             )
@@ -145,8 +145,8 @@ def generate_workflow() -> None:
                     cluster_scope=False
                 ),
                 arguments={
-                    "input": "{{steps.param-gen.outputs.result.validation_input}}",
-                    "output": "{{steps.param-gen.outputs.result.validation_output}}"
+                    "input": "{{steps.%s.outputs.result.validation_input}}" % params_step.name,
+                    "output": "{{steps.%s.outputs.result.validation_output}}" % params_step.name
                 }
             )
 
@@ -160,8 +160,8 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": "{{steps.param-gen.outputs.result.height_source}}",
-                        "destination": "{{steps.param-gen.outputs.result.height_destination}}"
+                        "source": "{{steps.%s.outputs.result.height_source}}" % params_step.name,
+                        "destination": "{{steps.%s.outputs.result.height_destination}}" % params_step.name
                     }
                 )
 
@@ -173,8 +173,8 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": "{{steps.param-gen.outputs.result.geluid_source}}",
-                        "destination": "{{steps.param-gen.outputs.result.geluid_destination}}"
+                        "source": "{{steps.%s.outputs.result.geluid_source}}" % params_step.name,
+                        "destination": "{{steps.%s.outputs.result.geluid_destination}}" % params_step.name
                     }
                 )
 
@@ -186,9 +186,9 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": "{{steps.param-gen.outputs.result.tyler_source}}",
-                        "intermediate": "{{steps.param-gen.outputs.result.tyler_intermediate}}",
-                        "destination": "{{steps.param-gen.outputs.result.tyler_destination}}",
+                        "source": "{{steps.%s.outputs.result.tyler_source}}" % params_step.name,
+                        "intermediate": "{{steps.%s.outputs.result.tyler_intermediate}}" % params_step.name,
+                        "destination": "{{steps.%s.outputs.result.tyler_destination}}" % params_step.name,
                         "mode": "buildings",
                         "workercount": "5"
                     }
@@ -204,8 +204,8 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": "{{steps.param-gen.outputs.result.height_destination}}",
-                        "destination": "{{steps.param-gen.outputs.result.height_split_destination}}",
+                        "source": "{{steps.%s.outputs.result.height_destination}}" % params_step.name,
+                        "destination": "{{steps.%s.outputs.result.height_split_destination}}" % params_step.name,
                         "year": w.get_parameter("year")
                     }
                 )
@@ -218,8 +218,8 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": "{{steps.param-gen.outputs.result.geluid_destination}}",
-                        "destination": "{{steps.param-gen.outputs.result.geluid_split_destination}}",
+                        "source": "{{steps.%s.outputs.result.geluid_destination}}" % params_step.name,
+                        "destination": "{{steps.%s.outputs.result.geluid_split_destination}}" % params_step.name,
                         "year": w.get_parameter("year")
                     }
                 )

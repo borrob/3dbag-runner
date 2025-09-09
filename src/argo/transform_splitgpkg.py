@@ -42,11 +42,11 @@ def generate_workflow() -> None:
                                    Parameter(name="destination", default="azure://<sas>"),
                                    Parameter(name="year", default="2022")
     ]) as w:
-        with DAG(name="splitgpkgdag"):
+        with DAG(name="splitgpkgdag", inputs=[Parameter(name="source"), Parameter(name="destination"), Parameter(name="year")]):
             queue: Script = workerfunc(arguments={  # type: ignore  # noqa: F841
-                "source": w.get_parameter("source"),
-                "destination": w.get_parameter("destination"),
-                "year": w.get_parameter("year")
+                "source": "{{inputs.parameters.source}}",
+                "destination": "{{inputs.parameters.destination}}",
+                "year": "{{inputs.parameters.year}}"
             })  # type: ignore
 
         with open(f"generated/{w.name}.yaml", "w") as f:
