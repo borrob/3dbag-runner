@@ -14,7 +14,7 @@ from roofhelper.pdok.PdokGeopackageWriter import FeatureWithGeometry
 
 log = setup_logging()
 
-PDOK_DELIVERY_SCHEMA_GEBOUW = createBaseSchema({"jaargang_luchtfoto": "int", "bladnr": "str"})
+PDOK_DELIVERY_SCHEMA_GEBOUW = createBaseSchema({"jaargang_luchtfoto": "int"})
 
 
 @dataclass

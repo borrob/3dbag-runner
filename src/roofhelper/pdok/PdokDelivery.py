@@ -7,7 +7,6 @@ PDOK_DELIVERY_BASE_SCHEMA: dict[str, Any] = {
     'geometry': 'Polygon',
     'properties': {
         'bladnr': 'str',
-        'jaargang_luchtfoto': 'int',
         'download_size_bytes': 'int',
         'download_link': 'str',
         'startdatum': 'datetime',

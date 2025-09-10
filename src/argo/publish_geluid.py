@@ -1,6 +1,5 @@
 from hera.workflows import DAG, Script, EmptyDirVolume, SecretVolume
 from argo.argodefaults import argo_worker, get_workflow_template
-from roofhelper.pdok.PdokGeopackageWriter import write_features_to_geopackage
 
 
 @argo_worker(volumes=[
@@ -14,6 +13,7 @@ def pdok_workflow_func() -> None:
     from pathlib import Path
     from main import trigger_pdok_update
     from roofhelper.pdok.PdokDeliverySound import get_pdok_sound_features, PDOK_DELIVERY_SCHEMA_SOUND
+    from roofhelper.pdok.PdokGeopackageWriter import write_features_to_geopackage
     from roofhelper.defaultlogging import setup_logging
     from roofhelper.io import SchemeFileHandler
 
