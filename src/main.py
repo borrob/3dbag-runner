@@ -55,7 +55,7 @@ def createlazdb(uri: str, target: Path, pattern: str = "(?i)^.*(las|laz)$", epsg
             extent_polygon = laz.extent_to_polygon(laz_header)
             return {
                 'geometry': extent_polygon,
-                'path': entry.full_uri,
+                'path': entry.name,
                 'date': laz_header.creation_date
             }
 
