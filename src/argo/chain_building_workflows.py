@@ -1,14 +1,28 @@
 from hera.workflows import Step, Steps, Parameter
-from hera.workflows.models import TemplateRef
+from hera.workflows.models import TemplateRef, ValueFrom
 from argo.argodefaults import get_workflow_template, argo_worker
 from typing import Any  # added for mypy suppression
 
 
-@argo_worker()
+@argo_worker(outputs=[
+    Parameter(name="footprints", value_from=ValueFrom(path="/workflow/params/footprints")),
+    Parameter(name="cityjson_destination", value_from=ValueFrom(path="/workflow/params/cityjson_destination")),
+    Parameter(name="validation_input", value_from=ValueFrom(path="/workflow/params/validation_input")),
+    Parameter(name="validation_output", value_from=ValueFrom(path="/workflow/params/validation_output")),
+    Parameter(name="height_source", value_from=ValueFrom(path="/workflow/params/height_source")),
+    Parameter(name="height_destination", value_from=ValueFrom(path="/workflow/params/height_destination")),
+    Parameter(name="geluid_source", value_from=ValueFrom(path="/workflow/params/geluid_source")),
+    Parameter(name="geluid_destination", value_from=ValueFrom(path="/workflow/params/geluid_destination")),
+    Parameter(name="tyler_source", value_from=ValueFrom(path="/workflow/params/tyler_source")),
+    Parameter(name="tyler_intermediate", value_from=ValueFrom(path="/workflow/params/tyler_intermediate")),
+    Parameter(name="tyler_destination", value_from=ValueFrom(path="/workflow/params/tyler_destination")),
+    Parameter(name="height_split_destination", value_from=ValueFrom(path="/workflow/params/height_split_destination")),
+    Parameter(name="geluid_split_destination", value_from=ValueFrom(path="/workflow/params/geluid_split_destination")),
+])
 def generate_parameters(folder: str, year: str) -> None:
     import json
-    import sys
     import logging
+    import os
     from roofhelper.io import SchemeFileHandler
     from roofhelper.defaultlogging import setup_logging
 
@@ -35,7 +49,12 @@ def generate_parameters(folder: str, year: str) -> None:
     }
 
     logger.info(f"Generated parameters: {json.dumps(parameters, indent=2)}")
-    json.dump(parameters, sys.stdout)
+
+    # Write outputs to files for Argo output parameters
+    os.makedirs("/workflow/params", exist_ok=True)
+    for k, v in parameters.items():
+        with open(f"/workflow/params/{k}", "w") as f:
+            f.write(str(v))
 
 
 def generate_workflow() -> None:
@@ -76,8 +95,7 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        # Use jsonpath to extract the 'footprints' field from the JSON result
-                        "destination": "{{=jsonpath(steps.%s.outputs.result, '$.footprints')}}" % params_step.name,
+                        "destination": "{{steps.%s.outputs.parameters.footprints}}" % params_step.name,
                         "year": w.get_parameter("year")
                     }
                 )
@@ -127,12 +145,12 @@ def generate_workflow() -> None:
                     cluster_scope=False
                 ),
                 arguments={
-                    "footprints": "{{=jsonpath(steps.%s.outputs.result, '$.footprints')}}" % params_step.name,
+                    "footprints": "{{steps.%s.outputs.parameters.footprints}}" % params_step.name,
                     "year": w.get_parameter("year"),
                     "dsm": w.get_parameter("dsm"),
                     "ahn4": w.get_parameter("ahn4"),
                     "ahn3": w.get_parameter("ahn3"),
-                    "destination": "{{=jsonpath(steps.%s.outputs.result, '$.cityjson_destination')}}" % params_step.name,
+                    "destination": "{{steps.%s.outputs.parameters.cityjson_destination}}" % params_step.name,
                     "workercount": "5"
                 }
             )
@@ -146,8 +164,8 @@ def generate_workflow() -> None:
                     cluster_scope=False
                 ),
                 arguments={
-                    "input": "{{=jsonpath(steps.%s.outputs.result, '$.validation_input')}}" % params_step.name,
-                    "output": "{{=jsonpath(steps.%s.outputs.result, '$.validation_output')}}" % params_step.name
+                    "input": "{{steps.%s.outputs.parameters.validation_input}}" % params_step.name,
+                    "output": "{{steps.%s.outputs.parameters.validation_output}}" % params_step.name
                 }
             )
 
@@ -161,8 +179,8 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": "{{=jsonpath(steps.%s.outputs.result, '$.height_source')}}" % params_step.name,
-                        "destination": "{{=jsonpath(steps.%s.outputs.result, '$.height_destination')}}" % params_step.name
+                        "source": "{{steps.%s.outputs.parameters.height_source}}" % params_step.name,
+                        "destination": "{{steps.%s.outputs.parameters.height_destination}}" % params_step.name
                     }
                 )
 
@@ -174,8 +192,8 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": "{{=jsonpath(steps.%s.outputs.result, '$.geluid_source')}}" % params_step.name,
-                        "destination": "{{=jsonpath(steps.%s.outputs.result, '$.geluid_destination')}}" % params_step.name
+                        "source": "{{steps.%s.outputs.parameters.geluid_source}}" % params_step.name,
+                        "destination": "{{steps.%s.outputs.parameters.geluid_destination}}" % params_step.name
                     }
                 )
 
@@ -187,9 +205,9 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": "{{=jsonpath(steps.%s.outputs.result, '$.tyler_source')}}" % params_step.name,
-                        "intermediate": "{{=jsonpath(steps.%s.outputs.result, '$.tyler_intermediate')}}" % params_step.name,
-                        "destination": "{{=jsonpath(steps.%s.outputs.result, '$.tyler_destination')}}" % params_step.name,
+                        "source": "{{steps.%s.outputs.parameters.tyler_source}}" % params_step.name,
+                        "intermediate": "{{steps.%s.outputs.parameters.tyler_intermediate}}" % params_step.name,
+                        "destination": "{{steps.%s.outputs.parameters.tyler_destination}}" % params_step.name,
                         "mode": "buildings",
                         "workercount": "5"
                     }
@@ -205,8 +223,8 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": "{{=jsonpath(steps.%s.outputs.result, '$.height_destination')}}" % params_step.name,
-                        "destination": "{{=jsonpath(steps.%s.outputs.result, '$.height_split_destination')}}" % params_step.name,
+                        "source": "{{steps.%s.outputs.parameters.height_destination}}" % params_step.name,
+                        "destination": "{{steps.%s.outputs.parameters.height_split_destination}}" % params_step.name,
                         "year": w.get_parameter("year")
                     }
                 )
@@ -219,8 +237,8 @@ def generate_workflow() -> None:
                         cluster_scope=False
                     ),
                     arguments={
-                        "source": "{{=jsonpath(steps.%s.outputs.result, '$.geluid_destination')}}" % params_step.name,
-                        "destination": "{{=jsonpath(steps.%s.outputs.result, '$.geluid_split_destination')}}" % params_step.name,
+                        "source": "{{steps.%s.outputs.parameters.geluid_destination}}" % params_step.name,
+                        "destination": "{{steps.%s.outputs.parameters.geluid_split_destination}}" % params_step.name,
                         "year": w.get_parameter("year")
                     }
                 )

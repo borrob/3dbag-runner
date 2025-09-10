@@ -3,7 +3,7 @@ from typing_extensions import TypedDict
 from pathlib import Path
 
 
-from hera.workflows import script, EmptyDirVolume, Artifact, SecretVolume, WorkflowTemplate
+from hera.workflows import script, EmptyDirVolume, Artifact, SecretVolume, WorkflowTemplate, Parameter
 from hera.workflows.models.io.k8s.api.core.v1 import Toleration, ResourceRequirements, Affinity, NodeAffinity, NodeSelector, NodeSelectorTerm, NodeSelectorRequirement
 from hera.workflows.models.io.k8s.apimachinery.pkg.api.resource import Quantity
 from hera.workflows.models.io.argoproj.workflow.v1alpha1 import RetryStrategy
@@ -90,7 +90,7 @@ class _ScriptKwargs(TypedDict, total=False):
     resources: ResourceRequirements
     affinity: Affinity
     image_pull_policy: Literal["Always", "IfNotPresent", "Never"]
-    outputs: list[Artifact] | Artifact
+    outputs: list[Artifact | Parameter] | Artifact | Parameter
     inputs: list[Artifact] | Artifact
     retry_strategy: RetryStrategy
 
