@@ -168,9 +168,8 @@ def _process_dsm_layers(file_handler: SchemeFileHandler, source_uri: str, downlo
                     layer_uri = file_handler.navigate(year_uri, f"{layer_name}/laz")
 
                     # Initialize feature collection for this layer if not exists
-                    layer_key = f"basisbestand_{layer_name}"
-                    if layer_key not in features_by_type:
-                        features_by_type[layer_key] = []
+                    if layer_name not in features_by_type:
+                        features_by_type[layer_name] = []
 
                     for file_entry in file_handler.list_entries_shallow(layer_uri, regex=r'.*\.laz$'):
                         if not file_entry.is_file:
@@ -209,7 +208,7 @@ def _process_dsm_layers(file_handler: SchemeFileHandler, source_uri: str, downlo
                             geometry=geometry,
                             properties=properties
                         )
-                        features_by_type[f"basisbestand_{layer_name}"].append(feature)
+                        features_by_type[layer_name].append(feature)
 
                 except Exception as e:
                     log.warning(f"Failed to process layer {layer_name} for year {year}: {e}")
