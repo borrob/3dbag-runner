@@ -126,7 +126,7 @@ def read_height_from_cityjson(cityjsonfile: Path) -> Generator[Building]:
         building_lod0.status = attributes.get("status", "")
         building_lod0.tijdstip_registratie_lv = attributes.get("tijdstipRegistratieLV", "")
         building_lod0.tijdstip_eind_registratie_lv = attributes.get("tijdstipEindRegistratieLV")
-        
+
         # Additional attributes from HOOGTE_SCHEMA
         building_lod0.begin_geldigheid = attributes.get("beginGeldigheid")
         building_lod0.eind_geldigheid = attributes.get("eindGeldigheid")
