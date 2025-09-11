@@ -105,7 +105,7 @@ class AzureSchemeFileHandler(AbstractSchemeHandler):
         with tempfile.NamedTemporaryFile(dir=temporary_directory, delete=False, suffix=extension) as f:
             stream = blob_client.download_blob(max_concurrency=10)
             stream.readinto(f)
-            return FileHandle(Path(f.name), True)
+            return FileHandle(Path(f.name).resolve(), True)
 
     @staticmethod
     def upload_file_directory(file: Path, uri: str, filename: Optional[str]) -> None:

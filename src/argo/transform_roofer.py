@@ -47,6 +47,7 @@ def queuefunc(workercount: int, footprints: str, cityjsonfolder: str, year: int)
 @argo_worker(inputs=Artifact(name="queue", path="/workflow/queue.json"), retry_strategy=RetryStrategy(limit=5))  # type: ignore
 def workerfunc(workerid: int, footprints: str, year: int, dsm: str, ahn4: str, ahn3: str) -> None:
     import json
+    import shutil
     from pathlib import Path
     from concurrent.futures import ThreadPoolExecutor
     import logging
@@ -76,6 +77,7 @@ def workerfunc(workerid: int, footprints: str, year: int, dsm: str, ahn4: str, a
 
         x = work["extent"]
         extent = (float(x[0]), float(x[1]), float(x[2]), float(x[3]))
+        runpath = Path(f"/workflow/{index}")
         runsingleroofertile(
             extent,
             f"file://{footprints_file}",
@@ -83,10 +85,11 @@ def workerfunc(workerid: int, footprints: str, year: int, dsm: str, ahn4: str, a
             ["AHN4", "AHN3"],
             year,
             destination,
-            Path(f"/workflow/{index}"),
+            runpath,
             [dsm],
             [str(year)]
         )
+        shutil.rmtree(runpath)
 
     with ThreadPoolExecutor(max_workers=30) as executor:
         futures = [executor.submit(process_task, idx, work) for idx, work in enumerate(local_queue)]

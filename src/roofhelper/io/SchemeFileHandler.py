@@ -66,7 +66,7 @@ class SchemeFileHandler:
 
         with tempfile.NamedTemporaryFile(dir=self.temporary_directory, suffix=suffix, delete=False) as f:
             f.write(text.encode('utf-8'))
-            path = Path(f.name)
+            path = Path(f.name).resolve()
             self.file_handles.append(FileHandle(path, True))
             return path
 
@@ -87,7 +87,7 @@ class SchemeFileHandler:
         with tempfile.NamedTemporaryFile(dir=self.temporary_directory, suffix=suffix, delete=False) as f:
             if text is not None:
                 f.write(text.encode('utf-8'))
-            path = Path(f.name)
+            path = Path(f.name).resolve()
             self.file_handles.append(FileHandle(path, True))
             return path
 
@@ -97,7 +97,8 @@ class SchemeFileHandler:
         This function will only remove the file if it wasn't local
         """
         with self._lock:
-            to_remove = [handle for handle in self.file_handles if handle.must_dispose and handle.path == path]
+            resolved_path = path.resolve()
+            to_remove = [handle for handle in self.file_handles if handle.must_dispose and handle.path.resolve() == resolved_path]
             for handle in to_remove:
                 if handle.path.exists():
                     os.unlink(handle.path)
