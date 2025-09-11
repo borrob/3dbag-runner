@@ -300,8 +300,6 @@ def building_to_gpkg_dict(b: Building) -> dict[Any, Any]:
 
 def building_to_hoogte_gpkg_dict(b: Building) -> dict[Any, Any]:
     polygon = Polygon([(pt[0], pt[1]) for pt in b.footprint])
-    if b.tijdstip_eind_registratie_lv is None:
-        b.tijdstip_eind_registratie_lv = '2199/12/31 00:00:00'
 
     return {
         'geometry': mapping(polygon),
@@ -334,22 +332,5 @@ def building_to_hoogte_gpkg_dict(b: Building) -> dict[Any, Any]:
             'rf_val3dity_lod12': b.rf_val3dity_lod12,
             'rf_val3dity_lod13': b.rf_val3dity_lod13,
             'rf_val3dity_lod22': b.rf_val3dity_lod22,
-            'pand_deel_id': b.pand_deel_id,
-            'dd_id': b.dd_id,
-            'h_maaiveld': b.h_maaiveld,
-            'roof_elevation_50p': b.roof_elevation_50p,
-            'roof_elevation_70p': b.roof_elevation_70p,
-            'roof_elevation_min': b.roof_elevation_min,
-            'roof_elevation_max': b.roof_elevation_max,
-            'dak_type': b.dak_type,  # nummer
-            'pw_datum': b.pw_actueel,
-            'pw_bron': b.pw_bron,
-            'documentnummer': b.document_nummer,
-            'documentdatum': b.document_datum,
-            'pandstatus': b.status,
-            'bouwjaar': b.oorspronkelijk_bouwjaar,
-            'begindatumtijdvakgeldigheid': b.tijdstip_registratie_lv,
-            'einddatumtijdvakgeldigheid': b.tijdstip_eind_registratie_lv,
-            'lod': b.lod,
         }
     }
