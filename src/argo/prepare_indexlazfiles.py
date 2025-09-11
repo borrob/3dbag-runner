@@ -6,7 +6,21 @@ from argo.argodefaults import argo_worker, get_workflow_template
 
 @argo_worker()
 def workfunc(destination: str) -> None:
+    import logging
+    from pathlib import Path
     from main import createlazindex
+    from roofhelper.defaultlogging import setup_logging
+    from roofhelper.io import SchemeFileHandler
+
+    logger = setup_logging(logging.INFO)
+
+    # Check if index.gpkg already exists
+    handler = SchemeFileHandler(Path("/workflow"))
+    index_path = handler.navigate(destination, "index.gpkg")
+    if handler.file_exists(index_path):
+        logger.info(f"Index file already exists at {index_path}, skipping prepare-indexlazfiles")
+        exit(0)
+
     createlazindex(destination, "/workflow")
 
 

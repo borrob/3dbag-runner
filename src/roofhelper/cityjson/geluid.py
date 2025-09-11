@@ -28,10 +28,28 @@ class Building:
     document_datum: str
     status: str
     tijdstip_registratie_lv: str
-    tijdstip_eind_registratie_lv: str
+    tijdstip_eind_registratie_lv: Optional[str]
     coverage: float
     dd_id: int
     pand_deel_id: int
+    # Additional attributes from HOOGTE_SCHEMA
+    begin_geldigheid: Optional[str]
+    eind_geldigheid: Optional[str]
+    voorkomen_identificatie: int
+    rf_success: bool
+    rf_h_roof_ridge: Optional[float]
+    rf_h_pc_98p: float
+    rf_volume_lod12: float
+    rf_volume_lod13: float
+    rf_volume_lod22: float
+    rf_is_glass_roof: bool
+    rf_pc_select: str
+    rf_rmse_lod12: float
+    rf_rmse_lod13: float
+    rf_rmse_lod22: float
+    rf_val3dity_lod12: str
+    rf_val3dity_lod13: str
+    rf_val3dity_lod22: str
 
     def __str__(self) -> str:
         return (
@@ -95,19 +113,38 @@ def read_height_from_cityjson(cityjsonfile: Path) -> Generator[Building]:
             footprint_vertices_translated.append([x, y, z])
 
         building_lod0.footprint = footprint_vertices_translated
-        building_lod0.dak_type = attributes["rf_roof_type"]
-        building_lod0.h_maaiveld = attributes["rf_h_ground"]
-        building_lod0.identificatie = attributes["identificatie"]
-        building_lod0.pw_actueel = attributes["rf_pc_year"]
-        building_lod0.pw_bron = attributes["rf_pc_source"]
-        building_lod0.oorspronkelijk_bouwjaar = attributes["oorspronkelijkBouwjaar"]
-        building_lod0.bagpandid = attributes["identificatie"].replace("NL.IMBAG.Pand.", "")
+        building_lod0.dak_type = attributes.get("rf_roof_type", "")
+        building_lod0.h_maaiveld = attributes.get("rf_h_ground", 0.0)
+        building_lod0.identificatie = attributes.get("identificatie", "")
+        building_lod0.pw_actueel = attributes.get("rf_pc_year", 0)
+        building_lod0.pw_bron = attributes.get("rf_pc_source", "")
+        building_lod0.oorspronkelijk_bouwjaar = attributes.get("oorspronkelijkBouwjaar", "")
+        building_lod0.bagpandid = attributes.get("identificatie", "").replace("NL.IMBAG.Pand.", "")
         building_lod0.kwaliteits_klasse = "keep"
-        building_lod0.document_nummer = attributes["documentNummer"]
-        building_lod0.document_datum = attributes["documentDatum"]
-        building_lod0.status = attributes["status"]
-        building_lod0.tijdstip_registratie_lv = attributes["tijdstipRegistratieLV"]
-        building_lod0.tijdstip_eind_registratie_lv = attributes["tijdstipEindRegistratieLV"]
+        building_lod0.document_nummer = attributes.get("documentNummer", "")
+        building_lod0.document_datum = attributes.get("documentDatum", "")
+        building_lod0.status = attributes.get("status", "")
+        building_lod0.tijdstip_registratie_lv = attributes.get("tijdstipRegistratieLV", "")
+        building_lod0.tijdstip_eind_registratie_lv = attributes.get("tijdstipEindRegistratieLV")
+        
+        # Additional attributes from HOOGTE_SCHEMA
+        building_lod0.begin_geldigheid = attributes.get("beginGeldigheid")
+        building_lod0.eind_geldigheid = attributes.get("eindGeldigheid")
+        building_lod0.voorkomen_identificatie = attributes.get("voorkomenIdentificatie", 0)
+        building_lod0.rf_success = attributes.get("rf_success", False)
+        building_lod0.rf_h_roof_ridge = attributes.get("rf_h_roof_ridge")
+        building_lod0.rf_h_pc_98p = attributes.get("rf_h_pc_98p", 0.0)
+        building_lod0.rf_volume_lod12 = attributes.get("rf_volume_lod12", 0.0)
+        building_lod0.rf_volume_lod13 = attributes.get("rf_volume_lod13", 0.0)
+        building_lod0.rf_volume_lod22 = attributes.get("rf_volume_lod22", 0.0)
+        building_lod0.rf_is_glass_roof = attributes.get("rf_is_glass_roof", False)
+        building_lod0.rf_pc_select = attributes.get("rf_pc_select", "")
+        building_lod0.rf_rmse_lod12 = attributes.get("rf_rmse_lod12", 0.0)
+        building_lod0.rf_rmse_lod13 = attributes.get("rf_rmse_lod13", 0.0)
+        building_lod0.rf_rmse_lod22 = attributes.get("rf_rmse_lod22", 0.0)
+        building_lod0.rf_val3dity_lod12 = attributes.get("rf_val3dity_lod12", "")
+        building_lod0.rf_val3dity_lod13 = attributes.get("rf_val3dity_lod13", "")
+        building_lod0.rf_val3dity_lod22 = attributes.get("rf_val3dity_lod22", "")
 
         # LOD 0 by default
         building_lod0.roof_elevation_50p = safe_subtract(
@@ -202,41 +239,38 @@ GELUID_SCHEMA: Final = {
     }
 }
 
+
 HOOGTE_SCHEMA: Final = {
     'geometry': 'Polygon',
     'properties': {
-        # ID
-        # 'id': 'int',
         'identificatie': 'str',
-        'pand_deel_id': 'int',
-        'dd_id': 'int',
-        'h_maaiveld': 'float',
-        'roof_elevation_50p': 'float',
-        'roof_elevation_70p': 'float',
-        'roof_elevation_min': 'float',
-        'roof_elevation_max': 'float',
-        # 'dd_data_coverage': 'float',
-        'dak_type': 'str',  # Enum conversion
-        'pw_datum': 'str',
-        # 'pw_actueel': 'int',
-        'pw_bron': 'str',
-        # 'reconstructie_methode': 'str',
-        # 'versie_methode': 'str',
-        # 'kas_warenhuis': 'bool',
-        # 'ondergronds_type': 'int',
-        # 'kwaliteits_klasse': 'str',
-        # 'objectid': 'int',
-        # 'aanduidingrecordinactief': 'float',
-        # 'aanduidingrecordcorrectie': 'float',
-        # 'officieel': 'float',
-        # 'inonderzoek': 'str',
-        'documentnummer': 'str',
-        'documentdatum': 'str',
-        'pandstatus': 'str',
-        'bouwjaar': 'int',
-        'begindatumtijdvakgeldigheid': 'str',
-        'einddatumtijdvakgeldigheid': 'str',
-        'lod': 'str',
+        'status': 'str',
+        'oorspronkelijkbouwjaar': 'int',
+        'begingeldigheid': 'str',
+        'eindgeldigheid': 'str',
+        'voorkomenidentificatie': 'int',
+        'rf_success': 'bool',
+        'rf_h_ground': 'float',
+        'rf_h_roof_min': 'float',
+        'rf_h_roof_ridge': 'float',
+        'rf_h_roof_50p': 'float',
+        'rf_h_roof_70p': 'float',
+        'rf_h_pc_98p': 'float',
+        'rf_h_roof_max': 'float',
+        'rf_volume_lod12': 'float',
+        'rf_volume_lod13': 'float',
+        'rf_volume_lod22': 'float',
+        'rf_roof_type': 'str',
+        'rf_is_glass_roof': 'bool',
+        'rf_pc_year': 'int',
+        'rf_pc_source': 'str',
+        'rf_pc_select': 'str',
+        'rf_rmse_lod12': 'float',
+        'rf_rmse_lod13': 'float',
+        'rf_rmse_lod22': 'float',
+        'rf_val3dity_lod12': 'str',
+        'rf_val3dity_lod13': 'str',
+        'rf_val3dity_lod22': 'str',
     }
 }
 
@@ -273,6 +307,33 @@ def building_to_hoogte_gpkg_dict(b: Building) -> dict[Any, Any]:
         'geometry': mapping(polygon),
         'properties': {
             'identificatie': b.identificatie.replace("NL.IMBAG.Pand.", ""),
+            'status': b.status,
+            'oorspronkelijkbouwjaar': b.oorspronkelijk_bouwjaar,
+            'begingeldigheid': b.begin_geldigheid,
+            'eindgeldigheid': b.eind_geldigheid,
+            'voorkomenidentificatie': b.voorkomen_identificatie,
+            'rf_success': b.rf_success,
+            'rf_h_ground': b.h_maaiveld,
+            'rf_h_roof_min': b.roof_elevation_min,
+            'rf_h_roof_ridge': b.rf_h_roof_ridge,
+            'rf_h_roof_50p': b.roof_elevation_50p,
+            'rf_h_roof_70p': b.roof_elevation_70p,
+            'rf_h_pc_98p': b.rf_h_pc_98p,
+            'rf_h_roof_max': b.roof_elevation_max,
+            'rf_volume_lod12': b.rf_volume_lod12,
+            'rf_volume_lod13': b.rf_volume_lod13,
+            'rf_volume_lod22': b.rf_volume_lod22,
+            'rf_roof_type': b.dak_type,
+            'rf_is_glass_roof': b.rf_is_glass_roof,
+            'rf_pc_year': b.pw_actueel,
+            'rf_pc_source': b.pw_bron,
+            'rf_pc_select': b.rf_pc_select,
+            'rf_rmse_lod12': b.rf_rmse_lod12,
+            'rf_rmse_lod13': b.rf_rmse_lod13,
+            'rf_rmse_lod22': b.rf_rmse_lod22,
+            'rf_val3dity_lod12': b.rf_val3dity_lod12,
+            'rf_val3dity_lod13': b.rf_val3dity_lod13,
+            'rf_val3dity_lod22': b.rf_val3dity_lod22,
             'pand_deel_id': b.pand_deel_id,
             'dd_id': b.dd_id,
             'h_maaiveld': b.h_maaiveld,
@@ -282,11 +343,7 @@ def building_to_hoogte_gpkg_dict(b: Building) -> dict[Any, Any]:
             'roof_elevation_max': b.roof_elevation_max,
             'dak_type': b.dak_type,  # nummer
             'pw_datum': b.pw_actueel,
-            # 'pw_actueel': 2,
             'pw_bron': b.pw_bron,
-            # 'versie_methode': '0ed1dc74b3146b10d4acb5196fde31348e887b06',
-            # 'kas_warenhuis': False,
-            # 'kwaliteits_klasse': "keep",
             'documentnummer': b.document_nummer,
             'documentdatum': b.document_datum,
             'pandstatus': b.status,

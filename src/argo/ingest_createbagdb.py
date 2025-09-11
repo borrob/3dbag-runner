@@ -15,12 +15,17 @@ def workerfunc(destination: str, year: int) -> None:
 
     logger = setup_logging(logging.INFO)
 
+    # Check if footprints already exist
+    handler = SchemeFileHandler(Path("/workflow/cache"))
+    if handler.file_exists(destination):
+        logger.info(f"Footprints already exist at {destination}, skipping ingest-createbagdb")
+        exit(0)
+
     logger.info("Creating index of laz files")
     os.makedirs("/workflow/cache", exist_ok=True)
     createbagdb(Path("/workflow/cache"), Path("/workflow/db.gpkg"), year)
 
     logger.info("Done creating the database, start uploading")
-    handler = SchemeFileHandler(Path("/workflow/cache"))
     handler.upload_file_direct(Path("/workflow/db.gpkg"), destination)
 
     logger.info("Done")
