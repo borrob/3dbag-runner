@@ -301,17 +301,19 @@ def _process_3d_layers(file_handler: SchemeFileHandler, source_uri: str, ahn_jso
 
                         # Determine geometry based on filename format
                         geometry: Optional[Polygon] = None
-
+                        bladnr: str = ""
                         # Check if it's the new coordinate-based format
                         coords = _extract_coordinates_from_new_format(file_entry.name)
                         if coords:
                             # New format: create geometry from coordinates (2x2 km tiles)
                             x, y = coords
                             geometry = _create_geometry_from_coordinates(x, y, tile_size_meters=2000)
+                            bladnr = f"{x}_{y}"
                         else:
                             # Legacy format: use AHN geometries
                             if ahn_key.lower() in ahn_geometries:
                                 geometry = ahn_geometries[ahn_key.lower()]
+                                bladnr = ahn_key
 
                         if not geometry:
                             log.warning(f"Could not determine geometry for file {file_entry.name}")
@@ -327,7 +329,7 @@ def _process_3d_layers(file_handler: SchemeFileHandler, source_uri: str, ahn_jso
 
                         # Create feature
                         properties = PdokDeliveryPropertiesBuilding(
-                            bladnr=ahn_key,
+                            bladnr=bladnr,
                             jaargang_luchtfoto=year,
                             download_size_bytes=file_entry.size or 0,
                             download_link=download_link,
