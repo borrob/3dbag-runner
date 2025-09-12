@@ -12,15 +12,16 @@ def workerfunc(
     from pathlib import Path
 
     # Construct file pattern with year
-    file_pattern = f"%s_{year}_3d_gebouwen.zip"
+    file_pattern = f"%s_{year}_3d_gebouwen"
+    peildatum = int(year) + 1
 
     # Construct readme with year
     readme_list = [
-        f"##3D Hoogtestatistieken Gebouwen {year}##",
+        f"##3D Gebouwen {year}##",
         "Het bestand is gebaseerd op:",
         f"- hoogte-informatie uit dense matching van stereo-winterluchtfotografie {year} uit LV Beeldmateriaal (LOD 1.2)",
         "- hoogte-informatie uit AHN (LOD 1.3)",
-        f"- BAG (peildatum 31-12-{year})",
+        f"- BAG (peildatum 01-01-{peildatum})",
         "Het bestand bestaat uit LOD 1.3 gebouwen en is aangevuld met LOD 1.2 gebouwen uit het 3D Basisvoorziening."
     ]
 

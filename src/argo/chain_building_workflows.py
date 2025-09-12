@@ -32,6 +32,8 @@ def generate_parameters(folder: str, year: str) -> None:
     # Parse the folder URI to determine the scheme
     handler = SchemeFileHandler()
 
+    year_geluid = int(year) + 1  # Don't ask, they've decided in the past it's based on peildatum, which is the first day of next year.
+
     # Generate all the paths using the appropriate navigate function
     parameters = {
         "footprints": handler.navigate(folder, f"{year}/bag{year}.gpkg"),
@@ -41,7 +43,7 @@ def generate_parameters(folder: str, year: str) -> None:
         "height_source": handler.navigate(folder, f"{year}/cityjson"),
         "height_destination": handler.navigate(folder, f"{year}/hoogte/{year}_NL_3d_geluid_gebouwen.gpkg"),
         "geluid_source": handler.navigate(folder, f"{year}/cityjson"),
-        "geluid_destination": handler.navigate(folder, f"{year}/geluid/{year}_3d_hoogtestatistieken_gebouwen.gpkg"),
+        "geluid_destination": handler.navigate(folder, f"{year}/geluid/{year_geluid}_3d_hoogtestatistieken_gebouwen.gpkg"),
         "tyler_source": handler.navigate(folder, f"{year}/cityjson"),
         "tyler_intermediate": handler.navigate(folder, f"{year}/intermediate"),
         "tyler_destination": handler.navigate(folder, f"{year}/tyler"),
