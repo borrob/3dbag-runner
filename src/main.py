@@ -653,7 +653,6 @@ def splitgpkg(
 
     log.info("Finished %d / %d tiles", completed, len(tiles))
 
-    file_handler.upload_folder(temporary_directory, destination)
     log.info("All tiles uploaded to %s", destination)
 
 
