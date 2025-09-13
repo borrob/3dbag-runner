@@ -229,7 +229,8 @@ def generate_workflow() -> None:
                     arguments={
                         "source": "{{steps.%s.outputs.parameters.height_destination}}" % params_step.name,
                         "destination": "{{steps.%s.outputs.parameters.height_split_destination}}" % params_step.name,
-                        "year": w.get_parameter("year")
+                        "year": w.get_parameter("year"),
+                        "postfix": "hoogtestatistieken_gebouwen"
                     }
                 )
 
@@ -243,7 +244,8 @@ def generate_workflow() -> None:
                     arguments={
                         "source": "{{steps.%s.outputs.parameters.geluid_destination}}" % params_step.name,
                         "destination": "{{steps.%s.outputs.parameters.geluid_split_destination}}" % params_step.name,
-                        "year": w.get_parameter("year")
+                        "year": w.get_parameter("year"),
+                        "postfix": "3dgeluid_gebouwen"
                     }
                 )
 

@@ -6,13 +6,14 @@ from argo.argodefaults import argo_worker, get_workflow_template
 def workerfunc(
     source: str,
     destination: str,
-    year: str
+    year: str,
+    postfix: str
 ) -> None:
     from main import splitgpkg
     from pathlib import Path
 
-    # Construct file pattern with year
-    file_pattern = f"%s_{year}_3d_gebouwen"
+    # Construct file pattern with year and postfix
+    file_pattern = f"%s_{year}_{postfix}"
     peildatum = int(year) + 1
 
     # Construct readme with year
@@ -41,13 +42,15 @@ def generate_workflow() -> None:
                                arguments=[
                                    Parameter(name="source", default="azure://<sas>"),
                                    Parameter(name="destination", default="azure://<sas>"),
-                                   Parameter(name="year", default="2022")
+                                   Parameter(name="year", default="2022"),
+                                   Parameter(name="postfix", default="3d_gebouwen")
     ]) as w:
-        with DAG(name="splitgpkgdag", inputs=[Parameter(name="source"), Parameter(name="destination"), Parameter(name="year")]):
+        with DAG(name="splitgpkgdag", inputs=[Parameter(name="source"), Parameter(name="destination"), Parameter(name="year"), Parameter(name="postfix")]):
             queue: Script = workerfunc(arguments={  # type: ignore  # noqa: F841
                 "source": "{{inputs.parameters.source}}",
                 "destination": "{{inputs.parameters.destination}}",
-                "year": "{{inputs.parameters.year}}"
+                "year": "{{inputs.parameters.year}}",
+                "postfix": "{{inputs.parameters.postfix}}"
             })  # type: ignore
 
         with open(f"generated/{w.name}.yaml", "w") as f:
