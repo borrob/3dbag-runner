@@ -38,7 +38,6 @@ class Building:
     voorkomen_identificatie: int
     rf_success: bool
     rf_h_roof_ridge: Optional[float]
-    rf_h_pc_98p: float
     rf_volume_lod12: float
     rf_volume_lod13: float
     rf_volume_lod22: float
@@ -133,7 +132,6 @@ def read_height_from_cityjson(cityjsonfile: Path) -> Generator[Building]:
         building_lod0.voorkomen_identificatie = attributes.get("voorkomenIdentificatie", 0)
         building_lod0.rf_success = attributes.get("rf_success", False)
         building_lod0.rf_h_roof_ridge = attributes.get("rf_h_roof_ridge")
-        building_lod0.rf_h_pc_98p = attributes.get("rf_h_pc_98p", 0.0)
         building_lod0.rf_volume_lod12 = attributes.get("rf_volume_lod12", 0.0)
         building_lod0.rf_volume_lod13 = attributes.get("rf_volume_lod13", 0.0)
         building_lod0.rf_volume_lod22 = attributes.get("rf_volume_lod22", 0.0)
@@ -255,7 +253,6 @@ HOOGTE_SCHEMA: Final = {
         'rf_h_roof_ridge': 'float',
         'rf_h_roof_50p': 'float',
         'rf_h_roof_70p': 'float',
-        'rf_h_pc_98p': 'float',
         'rf_h_roof_max': 'float',
         'rf_volume_lod12': 'float',
         'rf_volume_lod13': 'float',
@@ -316,7 +313,6 @@ def building_to_hoogte_gpkg_dict(b: Building) -> dict[Any, Any]:
             'rf_h_roof_ridge': b.rf_h_roof_ridge,
             'rf_h_roof_50p': b.roof_elevation_50p,
             'rf_h_roof_70p': b.roof_elevation_70p,
-            'rf_h_pc_98p': b.rf_h_pc_98p,
             'rf_h_roof_max': b.roof_elevation_max,
             'rf_volume_lod12': b.rf_volume_lod12,
             'rf_volume_lod13': b.rf_volume_lod13,
