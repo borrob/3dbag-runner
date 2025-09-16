@@ -575,6 +575,25 @@ def splitgpkg(
     file_handler = SchemeFileHandler(temporary_directory)
 
     gpkg_source: Path = file_handler.download_file(source)
+    zip_extract_dir: Optional[Path] = None
+    
+    # Check if the downloaded file is a zip file and unpack it if necessary
+    if gpkg_source.suffix.lower() == '.zip':
+        log.info("Detected zip file, unpacking...")
+        zip_extract_dir = temporary_directory / "extracted"
+        os.makedirs(zip_extract_dir, exist_ok=True)
+        zip.unzip(gpkg_source, zip_extract_dir)
+        
+        # Find the .gpkg file in the extracted contents
+        gpkg_files = list(zip_extract_dir.glob("**/*.gpkg"))
+        if not gpkg_files:
+            raise FileNotFoundError("No .gpkg file found in the zip archive")
+        if len(gpkg_files) > 1:
+            log.warning(f"Multiple .gpkg files found in zip, using the first one: {gpkg_files[0]}")
+        
+        gpkg_source = gpkg_files[0]
+        log.info(f"Using extracted geopackage: {gpkg_source}")
+    
     split_source_path: Path = file_handler.download_file(split_source)
     # -----------------------------------------------------------------------
     # load tile index {tile_code: [xmin, ymin, xmax, ymax]}
@@ -667,6 +686,14 @@ def splitgpkg(
     log.info("Finished %d / %d tiles", completed, len(tiles))
 
     log.info("All tiles uploaded to %s", destination)
+    
+    # Clean up extracted files if we unpacked a zip
+    if zip_extract_dir is not None and zip_extract_dir.exists():
+        log.info("Cleaning up extracted zip files...")
+        shutil.rmtree(zip_extract_dir)
+        log.info("Extracted files cleaned up")
+
+    log.info("Done")
 
 
 def main() -> None:
