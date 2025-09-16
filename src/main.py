@@ -379,10 +379,11 @@ def height_database(source: str, destination: str, temporary_directory: Path, ye
 
     gpkg_name_format = ""
     if isgeluid:
-        gpkg_name_format = "%s_NL_3d_geluid_gebouwen" % year
+        gpkg_name_format = f"{year}_NL_3d_geluid_gebouwen"
     else:
-        gpkg_name_format = "%s_3d_hoogtestatistieken_gebouwen" % year
+        gpkg_name_format = f"{year}_3d_hoogtestatistieken_gebouwen"
 
+    log.info(f"Creating database {gpkg_name_format}")
     batch_size = 100000
     queue: multiprocessing.Queue = multiprocessing.Queue(maxsize=batch_size * 2)  # type: ignore
     temporary_db = Path(os.path.join(temporary_directory, f"{gpkg_name_format}.gpkg"))
