@@ -364,22 +364,28 @@ def pointcloudsplit(input_connection: str, output_connection: str, grid_size: in
 
 
 def hoogte_operation(args: argparse.Namespace) -> None:
-    height_database(args.source, args.destination, args.temporary_directory, False)
+    height_database(args.source, args.destination, args.temporary_directory, args.year, False)
 
 
 def geluid_operation(args: argparse.Namespace) -> None:
-    height_database(args.source, args.destination, args.temporary_directory)
+    height_database(args.source, args.destination, args.temporary_directory, args.year, True)
 
 
-def height_database(source: str, destination: str, temporary_directory: Path, isgeluid: bool = True) -> None:
+def height_database(source: str, destination: str, temporary_directory: Path, year: int, isgeluid: bool = True) -> None:
     logging.info("Start geluid workflow")
     scheme_handler = SchemeFileHandler(temporary_directory)
 
     os.makedirs(temporary_directory, exist_ok=True)
 
+    gpkg_name_format = ""
+    if isgeluid:
+        gpkg_name_format = "%s_NL_3d_geluid_gebouwen" % year
+    else:
+        gpkg_name_format = "%s_3d_hoogtestatistieken_gebouwen" % year
+
     batch_size = 100000
     queue: multiprocessing.Queue = multiprocessing.Queue(maxsize=batch_size * 2)  # type: ignore
-    temporary_db = Path(os.path.join(temporary_directory, "db.gpkg"))
+    temporary_db = Path(os.path.join(temporary_directory, f"{gpkg_name_format}.gpkg"))
 
     def _reader(uri: str) -> None:
         file = scheme_handler.download_file(uri)
@@ -441,9 +447,16 @@ def height_database(source: str, destination: str, temporary_directory: Path, is
 
     producer_thread.join()
     consumer_thread.join()
-    log.info("Done creating sound database, start uploading")
-    scheme_handler.upload_file_direct(temporary_db, destination)
-    log.info("Uploaded database, stopping workflow")
+    log.info("Done creating sound database, start creating zip file")
+
+    # Create zip file containing the database
+    zip_path = Path(os.path.join(temporary_directory, f"{gpkg_name_format}.zip"))
+    zip.zip_file(temporary_db, zip_path)
+    log.info(f"Created zip file: {zip_path}")
+
+    log.info("Start uploading zip file")
+    scheme_handler.upload_file_direct(zip_path, destination)
+    log.info("Uploaded zip file, stopping workflow")
 
 
 def tyler_operation(args: argparse.Namespace) -> None:

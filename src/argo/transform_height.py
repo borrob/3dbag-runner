@@ -5,21 +5,23 @@ from argo.argodefaults import argo_worker, get_workflow_template
 
 
 @argo_worker()
-def workerfunc(source: str, destination: str) -> None:
+def workerfunc(source: str, destination: str, year: int) -> None:
     from main import height_database
     from pathlib import Path
-    height_database(source, destination, Path("/workflow"), False)
+    height_database(source, destination, Path("/workflow"), year, False)
 
 
 def generate_workflow() -> None:
     with get_workflow_template(__name__.split('.')[-1],
                                entrypoint="heightdag",
                                arguments=[Parameter(name="source", default="azure://<sas>"),
-                                          Parameter(name="destination", default="azure://<sas>")]) as w:
-        with DAG(name="heightdag", inputs=[Parameter(name="source"), Parameter(name="destination")]):
+                                          Parameter(name="destination", default="azure://<sas>"),
+                                          Parameter(name="year", default="2021")]) as w:
+        with DAG(name="heightdag", inputs=[Parameter(name="source"), Parameter(name="destination"), Parameter(name="year")]):
             queue: Script = workerfunc(arguments={  # type: ignore   # noqa: F841
                 "source": "{{inputs.parameters.source}}",
-                "destination": "{{inputs.parameters.destination}}"
+                "destination": "{{inputs.parameters.destination}}",
+                "year": "{{inputs.parameters.year}}"
             })  # type: ignore
 
         with open(f"generated/{w.name}.yaml", "w") as f:

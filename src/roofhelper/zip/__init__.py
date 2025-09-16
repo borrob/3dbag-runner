@@ -29,6 +29,25 @@ def zip_dir(source: Path, zip_path: Path, file: Optional[str] = None) -> None:
                     zip_ref.write(path, arcname=path.relative_to(source))
 
 
+def zip_file(source_file: Path, zip_path: Path, arcname: Optional[str] = None) -> None:
+    """
+    Create a zip file containing a single file.
+
+    Args:
+        source_file: Path to the file to zip
+        zip_path: Path where the zip file will be created
+        arcname: Name of the file inside the zip archive (defaults to source_file.name)
+    """
+    if not source_file.exists():
+        raise FileNotFoundError(f"{source_file} does not exist.")
+
+    if arcname is None:
+        arcname = source_file.name
+
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_ref:
+        zip_ref.write(source_file, arcname=arcname)
+
+
 def list_files(zip_path: Path, regex_pattern: str) -> list[str]:
     """
     Lists all the files in a given zip that match regex_pattern,
