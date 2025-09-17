@@ -48,18 +48,22 @@ def process_workflows(apply: bool = False) -> None:
 
     for module in workflow_modules:
         workflow_name = module.__name__.split('.')[-1].replace("_", "-")
+
+        # Get the directory paths once for both generation and apply
+        if module.__file__ is None:
+            log.error(f"Cannot determine file path for module {workflow_name}")
+            continue
+
+        module_dir = os.path.dirname(module.__file__)
+        # Navigate to parent directory and then to generated folder
+        parent_dir = os.path.dirname(os.path.dirname(module_dir))
+        generated_dir = os.path.join(parent_dir, "generated")
+        os.makedirs(generated_dir, exist_ok=True)
+
         log.info(f"Generating {workflow_name} workflow...")
         module.generate_workflow()
 
         if apply:
-            # Get the directory where the module is located and construct the workflow file path
-            if module.__file__ is None:
-                log.error(f"Cannot determine file path for module {workflow_name}")
-                continue
-            module_dir = os.path.dirname(module.__file__)
-            # Navigate to parent directory and then to generated folder
-            parent_dir = os.path.dirname(os.path.dirname(module_dir))
-            generated_dir = os.path.join(parent_dir, "generated")
             workflow_file = os.path.join(generated_dir, f"{workflow_name}.yaml")
 
             try:
