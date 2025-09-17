@@ -36,5 +36,6 @@ AzuriteConfig
 
 # Python test coverage
 .coverage
+coverage.xml
 
 classifytest/

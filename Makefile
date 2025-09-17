@@ -48,6 +48,7 @@ check:
 
 	@echo "Run mypy"
 	$(UV) run mypy $(SRC_DIR)
+	$(UV) run mypy $(TEST_DIR)
 
 format:
 	$(UV) run autoflake --remove-all-unused-imports --recursive --remove-unused-variables --in-place $(SRC_DIR) $(TEST_DIR)
